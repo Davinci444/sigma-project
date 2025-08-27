@@ -2,9 +2,9 @@
 
 import os
 from pathlib import Path
-import dj_database_url # Importamos la nueva herramienta
+import dj_database_url # Importamos la herramienta para la base de datos
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Ruta base del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- CONFIGURACIONES DE SEGURIDAD IMPORTANTES ---
@@ -15,8 +15,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # Lo leemos de una variable de entorno. Si no existe, por seguridad será Falso.
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-# Los dominios permitidos. Render añadirá la URL de tu aplicación aquí.
-# Si quieres añadir más, sepáralos por un espacio en la variable de Render.
+# Los dominios permitidos. Leemos la variable de Render que creamos.
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(' ')
 
 
@@ -102,8 +101,6 @@ USE_TZ = True
 
 
 # --- CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS (CSS, JS) ---
-# Esta es la parte que soluciona el error anterior.
-
 STATIC_URL = 'static/'
 # Le decimos a Django que junte todos los archivos estáticos en una carpeta llamada 'staticfiles'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
