@@ -1,12 +1,20 @@
 # core/models.py
-
 from django.db import models
 from django.conf import settings
-from fleet.models import Vehicle # Importamos Vehicle
+
+# --- NUEVO MODELO ---
+class Zone(models.Model):
+    name = models.CharField("Nombre de la Zona", max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+    class Meta:
+        verbose_name = "Zona Operativa"
+        verbose_name_plural = "Zonas Operativas"
 
 class FuelFill(models.Model):
     """Registra cada tanqueo de combustible importado del archivo."""
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, verbose_name="Vehículo")
+    vehicle = models.ForeignKey('fleet.Vehicle', on_delete=models.CASCADE, verbose_name="Vehículo")
     fill_date = models.DateTimeField("Fecha del Tanqueo")
     odometer_km = models.PositiveIntegerField("Kilometraje en el Tanqueo")
     gallons = models.DecimalField("Galones", max_digits=7, decimal_places=3)
@@ -22,7 +30,6 @@ class FuelFill(models.Model):
         verbose_name_plural = "Registros de Tanqueo"
         ordering = ['-fill_date']
 
-
 class OdometerReading(models.Model):
     """Guarda un histórico de las lecturas de odómetro validadas."""
     class Source(models.TextChoices):
@@ -30,7 +37,7 @@ class OdometerReading(models.Model):
         MANUAL = 'MANUAL', 'Entrada Manual'
         TELEMETRY = 'TELEMETRY', 'Telemática'
 
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, verbose_name="Vehículo")
+    vehicle = models.ForeignKey('fleet.Vehicle', on_delete=models.CASCADE, verbose_name="Vehículo")
     reading_km = models.PositiveIntegerField("Lectura de Kilometraje")
     reading_date = models.DateTimeField("Fecha de Lectura")
     source = models.CharField("Fuente de la Lectura", max_length=20, choices=Source.choices)
@@ -45,19 +52,15 @@ class OdometerReading(models.Model):
         verbose_name_plural = "Históricos de Odómetro"
         ordering = ['-reading_date']
 
-
-# El modelo Alert se queda igual que antes
 class Alert(models.Model):
     class AlertType(models.TextChoices):
         DOC_EXPIRATION = 'DOC_EXPIRATION', 'Vencimiento de Documento'
         LOW_STOCK = 'LOW_STOCK', 'Stock Bajo'
         PREVENTIVE_DUE = 'PREVENTIVE_DUE', 'Preventivo Pendiente'
         URGENT_OT = 'URGENT_OT', 'OT Urgente Creada'
-        # --- NUEVOS TIPOS DE ALERTA ---
         ODOMETER_INCONSISTENT = 'ODOMETER_INCONSISTENT', 'Odómetro Inconsistente'
         ODOMETER_UNAVAILABLE = 'ODOMETER_UNAVAILABLE', 'Odómetro No Disponible (Novedad)'
         MISSING_READING = 'MISSING_READING', 'Lectura de Odómetro Faltante'
-
 
     class Severity(models.TextChoices):
         INFO = 'INFO', 'Informativa'
