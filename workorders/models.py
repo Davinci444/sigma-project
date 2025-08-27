@@ -1,36 +1,57 @@
-# workorders/models.py
+# workorders/models.py (Versión con Manual de Mantenimiento)
 from django.db import models
-# ... (otros imports y modelos sin cambios)
 from django.conf import settings
 from fleet.models import Vehicle
 from inventory.models import Part
 
+# --- NUEVO: El Manual de Mantenimiento ---
+class MaintenanceManual(models.Model):
+    name = models.CharField("Nombre del Manual", max_length=150, unique=True, help_text="Ej: Plan Diesel Liviano, Plan Gasolina Avanzado")
+    fuel_type = models.CharField("Aplica a Tipo de Combustible", max_length=20, choices=Vehicle.FuelType.choices, null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+    class Meta:
+        verbose_name = "Manual de Mantenimiento"
+        verbose_name_plural = "Manuales de Mantenimiento"
+
+class ManualTask(models.Model):
+    manual = models.ForeignKey(MaintenanceManual, on_delete=models.CASCADE, related_name="tasks")
+    km_interval = models.PositiveIntegerField("Hito de Kilometraje (km)", help_text="Ej: 10000, 20000, 40000")
+    description = models.CharField("Descripción de la Tarea", max_length=255)
+    
+    def __str__(self):
+        return f"A los {self.km_interval} km: {self.description}"
+    class Meta:
+        verbose_name = "Tarea de Manual"
+        verbose_name_plural = "Tareas de Manual"
+        ordering = ['km_interval']
+
+# --- MODIFICADO: MaintenancePlan ahora usa un Manual ---
+class MaintenancePlan(models.Model):
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="plans", verbose_name="Vehículo")
+    manual = models.ForeignKey(MaintenanceManual, on_delete=models.PROTECT, verbose_name="Manual Aplicado", null=True, blank=True)
+    
+    last_service_km = models.PositiveIntegerField("Km del Último Preventivo", default=0, help_text="Se actualiza al cerrar OT Preventiva")
+    last_service_date = models.DateField("Fecha del Último Preventivo", null=True, blank=True, help_text="Se actualiza automáticamente")
+    is_active = models.BooleanField("Activo", default=False, help_text="Se activa automáticamente al cerrar la primera OT Preventiva")
+
+    def __str__(self):
+        return f"Plan para {self.vehicle.plate} (basado en {self.manual.name if self.manual else 'N/A'})"
+    class Meta:
+        verbose_name = "Plan de Mantenimiento"
+        verbose_name_plural = "Planes de Mantenimiento"
+
+# (El resto de los modelos se mantienen igual, pero los incluyo para que el archivo esté completo)
 class MaintenanceCategory(models.Model):
-    name = models.CharField("Nombre de la Categoría", max_length=100, unique=True)
-    description = models.TextField("Descripción", blank=True)
+    name = models.CharField("Nombre de la Categoría", max_length=100, unique=True); description = models.TextField("Descripción", blank=True)
     def __str__(self): return self.name
-    class Meta: verbose_name = "Categoría de Mantenimiento"; verbose_name_plural = "Categorías de Mantenimiento"
+    class Meta: verbose_name="Categoría de Mantenimiento"; verbose_name_plural="Categorías de Mantenimiento"
 
 class MaintenanceSubcategory(models.Model):
-    category = models.ForeignKey(MaintenanceCategory, on_delete=models.CASCADE, related_name="subcategories", verbose_name="Categoría Principal")
-    name = models.CharField("Nombre de la Subcategoría", max_length=100)
-    description = models.TextField("Descripción", blank=True)
+    category = models.ForeignKey(MaintenanceCategory, on_delete=models.CASCADE, related_name="subcategories", verbose_name="Categoría Principal"); name = models.CharField("Nombre de la Subcategoría", max_length=100); description = models.TextField("Descripción", blank=True)
     def __str__(self): return f"{self.category.name} -> {self.name}"
-    class Meta: verbose_name = "Subcategoría de Mantenimiento"; verbose_name_plural = "Subcategorías de Mantenimiento"; unique_together = ('category', 'name')
-
-class MaintenancePlan(models.Model):
-    class PlanType(models.TextChoices): KM_TIME = 'KM_TIME', 'Kilometraje (respaldo por tiempo)'; TIME = 'TIME', 'Solo por Tiempo (días)'; ENGINE_HOURS = 'HOURS', 'Solo por Horas de Motor'
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="plans", verbose_name="Vehículo")
-    plan_type = models.CharField("Tipo de Plan", max_length=10, choices=PlanType.choices, default=PlanType.KM_TIME)
-    threshold_km = models.PositiveIntegerField("Umbral Kilometraje (km)", default=10000)
-    threshold_days = models.PositiveIntegerField("Umbral Tiempo (días)", default=180)
-    grace_km = models.PositiveIntegerField("Kilometraje de Gracia", default=500)
-    last_service_km = models.PositiveIntegerField("Km en Último Servicio", default=0, help_text="Se actualiza al cerrar OT Preventiva")
-    last_service_date = models.DateField("Fecha del Último Servicio", null=True, blank=True, help_text="Se actualiza automáticamente")
-    is_active = models.BooleanField("Activo", default=True, help_text="Plan 'dormido' hasta cerrar primera OT Preventiva")
-    description = models.CharField("Descripción del Plan", max_length=255)
-    def __str__(self): return f"Plan {self.get_plan_type_display()} para {self.vehicle.plate}"
-    class Meta: verbose_name = "Plan de Mantenimiento"; verbose_name_plural = "Planes de Mantenimiento"
+    class Meta: verbose_name="Subcategoría de Mantenimiento"; verbose_name_plural="Subcategorías de Mantenimiento"; unique_together = ('category', 'name')
 
 class WorkOrder(models.Model):
     class OrderType(models.TextChoices): PREVENTIVE = 'PREVENTIVE', 'Preventivo'; CORRECTIVE = 'CORRECTIVE', 'Correctivo'
@@ -46,6 +67,8 @@ class WorkOrder(models.Model):
     scheduled_end = models.DateTimeField("Fin Programado (Estimado)", null=True, blank=True)
     check_in_at = models.DateTimeField("Ingreso Real", null=True, blank=True)
     check_out_at = models.DateTimeField("Salida Real", null=True, blank=True)
+    # --- NUEVO: Kilometraje al momento de la OT ---
+    odometer_at_service = models.PositiveIntegerField("Kilometraje al Ingresar", null=True, blank=True, help_text="KM del vehículo al momento de esta OT")
     labor_cost_internal = models.DecimalField("Costo MO Interna", max_digits=10, decimal_places=2, default=0.0)
     labor_cost_external = models.DecimalField("Costo MO Terceros", max_digits=10, decimal_places=2, default=0.0)
     parts_cost = models.DecimalField("Costo Repuestos", max_digits=10, decimal_places=2, default=0.0)
@@ -57,7 +80,7 @@ class WorkOrderTask(models.Model):
     work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="tasks", verbose_name="Orden de Trabajo")
     category = models.ForeignKey(MaintenanceCategory, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Categoría")
     subcategory = models.ForeignKey(MaintenanceSubcategory, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Subcategoría")
-    description = models.CharField("Descripción del Trabajo (si no aplica subcategoría)", max_length=255, blank=True)
+    description = models.CharField("Descripción del Trabajo", max_length=255, blank=True)
     hours_spent = models.DecimalField("Horas Invertidas", max_digits=5, decimal_places=2, default=0.0)
     is_external = models.BooleanField("Realizado por Tercero", default=False)
     labor_rate = models.DecimalField("Tarifa o Costo Fijo (Tercero)", max_digits=10, decimal_places=2, null=True, blank=True)
@@ -68,7 +91,6 @@ class WorkOrderTask(models.Model):
 class WorkOrderPart(models.Model):
     work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="parts_used")
     part = models.ForeignKey(Part, on_delete=models.PROTECT, verbose_name="Repuesto")
-    # --- CAMBIO A DECIMALFIELD ---
     quantity = models.DecimalField("Cantidad Usada", max_digits=10, decimal_places=2, default=1.0)
     cost_at_moment = models.DecimalField("Costo al Momento de Uso", max_digits=10, decimal_places=2)
     class Meta: unique_together = ('work_order', 'part'); verbose_name = "Repuesto Usado en OT"; verbose_name_plural = "Repuestos Usados en OT"
