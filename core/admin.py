@@ -1,22 +1,22 @@
 # core/admin.py
 from django.contrib import admin
-from .models import Alert, FuelFill, OdometerReading, Zone # Importamos Zone
+from django.core.management import call_command # Importamos call_command
+from django.contrib import messages
+from .models import Alert, FuelFill, OdometerReading, Zone
 
-# (La acción manual se queda igual)
-def run_daily_jobs_action(modeladmin, request, queryset):
-    from .management.commands import run_daily_jobs
-    from django.contrib import messages
+# --- ACCIÓN ACTUALIZADA ---
+def run_periodic_checks_action(modeladmin, request, queryset):
+    """
+    Acción del admin que ejecuta nuestro nuevo comando de revisiones periódicas.
+    """
     try:
-        command = run_daily_jobs.Command()
-        # Simulamos que no hay archivo para solo recalcular planes
-        command.handle(file_path=None) 
-        modeladmin.message_user(request, "Las tareas diarias (revisión de preventivos, stock y vencimientos) se han ejecutado con éxito.", messages.SUCCESS)
+        call_command('run_periodic_checks') # Llamamos al nuevo comando
+        modeladmin.message_user(request, "Las revisiones periódicas (documentos, planes, etc.) se han ejecutado con éxito.", messages.SUCCESS)
     except Exception as e:
-        modeladmin.message_user(request, f"Ocurrió un error al ejecutar las tareas: {e}", messages.ERROR)
-run_daily_jobs_action.short_description = "Ejecutar Tareas Diarias (Preventivos/Stock)"
+        modeladmin.message_user(request, f"Ocurrió un error al ejecutar las revisiones: {e}", messages.ERROR)
 
+run_periodic_checks_action.short_description = "Ejecutar Revisiones Periódicas (Docs/Planes)"
 
-# --- NUEVO: Registramos el modelo de Zonas ---
 @admin.register(Zone)
 class ZoneAdmin(admin.ModelAdmin):
     list_display = ('name',)
@@ -25,7 +25,8 @@ class ZoneAdmin(admin.ModelAdmin):
 class AlertAdmin(admin.ModelAdmin):
     list_display = ('alert_type', 'severity', 'message', 'seen', 'created_at')
     list_filter = ('alert_type', 'severity', 'seen')
-    actions = [run_daily_jobs_action]
+    # --- USAMOS LA NUEVA ACCIÓN ---
+    actions = [run_periodic_checks_action]
 
 @admin.register(FuelFill)
 class FuelFillAdmin(admin.ModelAdmin):
