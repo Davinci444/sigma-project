@@ -1,3 +1,12 @@
-from django.shortcuts import render
+# inventory/views.py
+from rest_framework import viewsets
+from .models import Part, Supplier
+from .serializers import PartSerializer, SupplierSerializer
 
-# Create your views here.
+class PartViewSet(viewsets.ModelViewSet):
+    queryset = Part.objects.all()
+    serializer_class = PartSerializer
+
+class SupplierViewSet(viewsets.ModelViewSet):
+    queryset = Supplier.objects.all()
+    serializer_class = SupplierSerializer
