@@ -2,13 +2,62 @@
 
 from django.db import models
 from django.conf import settings
+from fleet.models import Vehicle # Importamos Vehicle
 
+class FuelFill(models.Model):
+    """Registra cada tanqueo de combustible importado del archivo."""
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, verbose_name="Vehículo")
+    fill_date = models.DateTimeField("Fecha del Tanqueo")
+    odometer_km = models.PositiveIntegerField("Kilometraje en el Tanqueo")
+    gallons = models.DecimalField("Galones", max_digits=7, decimal_places=3)
+    notes = models.CharField("Observaciones del Archivo", max_length=255, blank=True)
+    source_file = models.CharField("Archivo de Origen", max_length=100, blank=True)
+    imported_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Tanqueo de {self.vehicle.plate} el {self.fill_date.strftime('%Y-%m-%d')}"
+
+    class Meta:
+        verbose_name = "Registro de Tanqueo"
+        verbose_name_plural = "Registros de Tanqueo"
+        ordering = ['-fill_date']
+
+
+class OdometerReading(models.Model):
+    """Guarda un histórico de las lecturas de odómetro validadas."""
+    class Source(models.TextChoices):
+        FUEL_FILL = 'FUEL_FILL', 'Tanqueo'
+        MANUAL = 'MANUAL', 'Entrada Manual'
+        TELEMETRY = 'TELEMETRY', 'Telemática'
+
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, verbose_name="Vehículo")
+    reading_km = models.PositiveIntegerField("Lectura de Kilometraje")
+    reading_date = models.DateTimeField("Fecha de Lectura")
+    source = models.CharField("Fuente de la Lectura", max_length=20, choices=Source.choices)
+    is_anomaly = models.BooleanField("Es Anomalía", default=False, help_text="Marcado si la lectura es inconsistente (ej. menor a la anterior)")
+    notes = models.CharField("Notas de la Lectura", max_length=255, blank=True)
+
+    def __str__(self):
+        return f"{self.vehicle.plate} - {self.reading_km} km el {self.reading_date.strftime('%Y-%m-%d')}"
+
+    class Meta:
+        verbose_name = "Histórico de Odómetro"
+        verbose_name_plural = "Históricos de Odómetro"
+        ordering = ['-reading_date']
+
+
+# El modelo Alert se queda igual que antes
 class Alert(models.Model):
     class AlertType(models.TextChoices):
         DOC_EXPIRATION = 'DOC_EXPIRATION', 'Vencimiento de Documento'
         LOW_STOCK = 'LOW_STOCK', 'Stock Bajo'
         PREVENTIVE_DUE = 'PREVENTIVE_DUE', 'Preventivo Pendiente'
         URGENT_OT = 'URGENT_OT', 'OT Urgente Creada'
+        # --- NUEVOS TIPOS DE ALERTA ---
+        ODOMETER_INCONSISTENT = 'ODOMETER_INCONSISTENT', 'Odómetro Inconsistente'
+        ODOMETER_UNAVAILABLE = 'ODOMETER_UNAVAILABLE', 'Odómetro No Disponible (Novedad)'
+        MISSING_READING = 'MISSING_READING', 'Lectura de Odómetro Faltante'
+
 
     class Severity(models.TextChoices):
         INFO = 'INFO', 'Informativa'
@@ -19,7 +68,6 @@ class Alert(models.Model):
     message = models.CharField("Mensaje", max_length=255)
     severity = models.CharField("Severidad", max_length=20, choices=Severity.choices, default=Severity.INFO)
     
-    # Enlace a la entidad relacionada
     related_vehicle = models.ForeignKey('fleet.Vehicle', on_delete=models.CASCADE, null=True, blank=True)
     related_part = models.ForeignKey('inventory.Part', on_delete=models.CASCADE, null=True, blank=True)
     related_work_order = models.ForeignKey('workorders.WorkOrder', on_delete=models.CASCADE, null=True, blank=True)

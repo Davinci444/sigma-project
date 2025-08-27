@@ -3,20 +3,24 @@
 from django.db import models
 
 class Vehicle(models.Model):
-    # Estados posibles para el vehículo
+    # (Los estados y tipos de combustible se quedan igual)
     class VehicleStatus(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Activo'
         IN_REPAIR = 'IN_REPAIR', 'En Reparación'
         SOLD = 'SOLD', 'Vendido'
         INACTIVE = 'INACTIVE', 'Inactivo'
 
-    # Tipos de combustible
     class FuelType(models.TextChoices):
         GASOLINE = 'GASOLINE', 'Gasolina'
         DIESEL = 'DIESEL', 'Diésel'
         ELECTRIC = 'ELECTRIC', 'Eléctrico'
         HYBRID = 'HYBRID', 'Híbrido'
         GAS = 'GAS', 'Gas'
+
+    # --- NUEVO CAMPO ---
+    class OdometerStatus(models.TextChoices):
+        VALID = 'VALID', 'Válido'
+        INVALID = 'INVALID', 'Inválido (Reportado en Novedades)'
 
     # Información básica
     plate = models.CharField("Placa", max_length=10, unique=True)
@@ -29,6 +33,11 @@ class Vehicle(models.Model):
     vehicle_type = models.CharField("Tipo de Vehículo", max_length=50, help_text="Ej: Camión, Auto, Moto")
     fuel_type = models.CharField("Tipo de Combustible", max_length=20, choices=FuelType.choices, default=FuelType.DIESEL)
     status = models.CharField("Estado", max_length=20, choices=VehicleStatus.choices, default=VehicleStatus.ACTIVE)
+
+    # --- NUEVOS CAMPOS ---
+    # Guardará el último kilometraje válido conocido del vehículo.
+    current_odometer_km = models.PositiveIntegerField("Kilometraje Actual (km)", default=0, help_text="Última lectura válida del odómetro.")
+    odometer_status = models.CharField("Estado del Odómetro", max_length=20, choices=OdometerStatus.choices, default=OdometerStatus.VALID)
 
     # Documentación
     soat_due_date = models.DateField("Vencimiento SOAT", blank=True, null=True)
