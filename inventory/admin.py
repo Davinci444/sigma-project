@@ -9,9 +9,10 @@ class SupplierAdmin(admin.ModelAdmin):
 
 @admin.register(Part)
 class PartAdmin(admin.ModelAdmin):
-    list_display = ('sku', 'name', 'stock_current', 'stock_min', 'average_cost', 'supplier')
+    # --- AÑADIMOS 'unit' A LA VISTA ---
+    list_display = ('sku', 'name', 'unit', 'stock_current', 'stock_min', 'supplier')
     search_fields = ('sku', 'name')
-    list_filter = ('supplier',)
+    list_filter = ('supplier', 'unit') # <-- Y a los filtros
 
 @admin.register(InventoryMovement)
 class InventoryMovementAdmin(admin.ModelAdmin):

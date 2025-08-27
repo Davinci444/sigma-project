@@ -1,13 +1,10 @@
-# project/settings.py (Versión final para Render y Desarrollo Local)
+# project/settings.py (Versión con idioma español activado)
 
 import os
 from pathlib import Path
 import dj_database_url
 
-# Ruta base del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# --- CONFIGURACIONES DE SEGURIDAD INTELIGENTES ---
 IS_PRODUCTION = os.environ.get('RENDER') == 'true'
 
 if IS_PRODUCTION:
@@ -19,7 +16,6 @@ else:
     DEBUG = True
     ALLOWED_HOSTS = ['*']
 
-# --- DEFINICIÓN DE APLICACIONES ---
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -42,6 +38,8 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # --- NUEVA LÍNEA PARA ACTIVAR TRADUCCIONES ---
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -50,13 +48,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'project.urls'
-
-# --- CORRECCIÓN AQUÍ ---
-# Le decimos a Django que busque plantillas en la carpeta 'templates' que creamos.
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')], # Esta línea es la corrección
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -70,23 +65,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'project.wsgi.application'
 
-# --- CONFIGURACIÓN DE LA BASE DE DATOS (INTELIGENTE) ---
 if IS_PRODUCTION:
-    DATABASES = {
-        'default': dj_database_url.config(
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
+    DATABASES = { 'default': dj_database_url.config(conn_max_age=600, ssl_require=True) }
 else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+    DATABASES = { 'default': { 'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3' } }
 
-# (El resto del archivo no cambia)
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -102,14 +85,8 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ],
+    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
+    'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework_simplejwt.authentication.JWTAuthentication'],
 }
