@@ -1,0 +1,20 @@
+# render.yaml
+
+services:
+  # El servicio web que correrá nuestra aplicación Django
+  - type: web
+    name: sigma-backend
+    env: python
+    plan: free # El plan gratuito de Render es suficiente para empezar
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+      python manage.py migrate
+      # Crea el superusuario si las variables de entorno están definidas
+      python manage.py createsuperuser --noinput || true
+    startCommand: gunicorn project.wsgi:application
+
+  # La base de datos PostgreSQL
+  - type: psql
+    name: sigma-db
+    plan: free
