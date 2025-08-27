@@ -1,48 +1,35 @@
-# workorders/models.py (Versión con Manual de Mantenimiento)
+# workorders/models.py (Versión con Costeo Automático)
 from django.db import models
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField
 from django.conf import settings
 from fleet.models import Vehicle
 from inventory.models import Part
 
-# --- NUEVO: El Manual de Mantenimiento ---
+# (Los modelos MaintenanceManual, ManualTask, MaintenanceCategory, MaintenanceSubcategory se quedan igual)
 class MaintenanceManual(models.Model):
     name = models.CharField("Nombre del Manual", max_length=150, unique=True, help_text="Ej: Plan Diesel Liviano, Plan Gasolina Avanzado")
     fuel_type = models.CharField("Aplica a Tipo de Combustible", max_length=20, choices=Vehicle.FuelType.choices, null=True, blank=True)
-
-    def __str__(self):
-        return self.name
-    class Meta:
-        verbose_name = "Manual de Mantenimiento"
-        verbose_name_plural = "Manuales de Mantenimiento"
+    def __str__(self): return self.name
+    class Meta: verbose_name = "Manual de Mantenimiento"; verbose_name_plural = "Manuales de Mantenimiento"
 
 class ManualTask(models.Model):
     manual = models.ForeignKey(MaintenanceManual, on_delete=models.CASCADE, related_name="tasks")
     km_interval = models.PositiveIntegerField("Hito de Kilometraje (km)", help_text="Ej: 10000, 20000, 40000")
     description = models.CharField("Descripción de la Tarea", max_length=255)
-    
-    def __str__(self):
-        return f"A los {self.km_interval} km: {self.description}"
-    class Meta:
-        verbose_name = "Tarea de Manual"
-        verbose_name_plural = "Tareas de Manual"
-        ordering = ['km_interval']
+    def __str__(self): return f"A los {self.km_interval} km: {self.description}"
+    class Meta: verbose_name = "Tarea de Manual"; verbose_name_plural = "Tareas de Manual"; ordering = ['km_interval']
 
-# --- MODIFICADO: MaintenancePlan ahora usa un Manual ---
 class MaintenancePlan(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="plans", verbose_name="Vehículo")
     manual = models.ForeignKey(MaintenanceManual, on_delete=models.PROTECT, verbose_name="Manual Aplicado", null=True, blank=True)
-    
     last_service_km = models.PositiveIntegerField("Km del Último Preventivo", default=0, help_text="Se actualiza al cerrar OT Preventiva")
     last_service_date = models.DateField("Fecha del Último Preventivo", null=True, blank=True, help_text="Se actualiza automáticamente")
     is_active = models.BooleanField("Activo", default=False, help_text="Se activa automáticamente al cerrar la primera OT Preventiva")
+    def __str__(self): return f"Plan para {self.vehicle.plate} (basado en {self.manual.name if self.manual else 'N/A'})"
+    class Meta: verbose_name = "Plan de Mantenimiento"; verbose_name_plural = "Planes de Mantenimiento"
 
-    def __str__(self):
-        return f"Plan para {self.vehicle.plate} (basado en {self.manual.name if self.manual else 'N/A'})"
-    class Meta:
-        verbose_name = "Plan de Mantenimiento"
-        verbose_name_plural = "Planes de Mantenimiento"
-
-# (El resto de los modelos se mantienen igual, pero los incluyo para que el archivo esté completo)
 class MaintenanceCategory(models.Model):
     name = models.CharField("Nombre de la Categoría", max_length=100, unique=True); description = models.TextField("Descripción", blank=True)
     def __str__(self): return self.name
@@ -67,13 +54,34 @@ class WorkOrder(models.Model):
     scheduled_end = models.DateTimeField("Fin Programado (Estimado)", null=True, blank=True)
     check_in_at = models.DateTimeField("Ingreso Real", null=True, blank=True)
     check_out_at = models.DateTimeField("Salida Real", null=True, blank=True)
-    # --- NUEVO: Kilometraje al momento de la OT ---
     odometer_at_service = models.PositiveIntegerField("Kilometraje al Ingresar", null=True, blank=True, help_text="KM del vehículo al momento de esta OT")
     labor_cost_internal = models.DecimalField("Costo MO Interna", max_digits=10, decimal_places=2, default=0.0)
     labor_cost_external = models.DecimalField("Costo MO Terceros", max_digits=10, decimal_places=2, default=0.0)
     parts_cost = models.DecimalField("Costo Repuestos", max_digits=10, decimal_places=2, default=0.0)
     created_at = models.DateTimeField("Fecha de Creación", auto_now_add=True)
+
     def __str__(self): return f"OT-{self.id} ({self.get_order_type_display()}) para {self.vehicle.plate}"
+    
+    # --- NUEVO: Lógica de Recálculo de Costos ---
+    def recalculate_costs(self):
+        # Calculamos costos de mano de obra
+        labor_costs = self.tasks.aggregate(
+            internal=Sum('hours_spent', filter=models.Q(is_external=False)),
+            external=Sum('labor_rate', filter=models.Q(is_external=True))
+        )
+        # Asumimos una tarifa interna por hora (ej: 50,000 COP). Esto debería ser configurable.
+        internal_rate = 50000 
+        self.labor_cost_internal = (labor_costs['internal'] or 0) * internal_rate
+        self.labor_cost_external = labor_costs['external'] or 0
+
+        # Calculamos costos de repuestos
+        parts_total = self.parts_used.aggregate(
+            total=Sum(ExpressionWrapper(F('quantity') * F('cost_at_moment'), output_field=DecimalField()))
+        )['total']
+        self.parts_cost = parts_total or 0
+        
+        self.save(update_fields=['labor_cost_internal', 'labor_cost_external', 'parts_cost'])
+
     class Meta: verbose_name = "Orden de Trabajo"; verbose_name_plural = "Órdenes de Trabajo"; ordering = ['-created_at']
 
 class WorkOrderTask(models.Model):
@@ -94,3 +102,14 @@ class WorkOrderPart(models.Model):
     quantity = models.DecimalField("Cantidad Usada", max_digits=10, decimal_places=2, default=1.0)
     cost_at_moment = models.DecimalField("Costo al Momento de Uso", max_digits=10, decimal_places=2)
     class Meta: unique_together = ('work_order', 'part'); verbose_name = "Repuesto Usado en OT"; verbose_name_plural = "Repuestos Usados en OT"
+
+# --- NUEVO: Conectores de Señales (Signals) ---
+# Esta función se ejecutará cada vez que se guarde o borre una TAREA
+@receiver([post_save, post_delete], sender=WorkOrderTask)
+def on_task_change(sender, instance, **kwargs):
+    instance.work_order.recalculate_costs()
+
+# Esta función se ejecutará cada vez que se guarde o borre un REPUESTO
+@receiver([post_save, post_delete], sender=WorkOrderPart)
+def on_part_change(sender, instance, **kwargs):
+    instance.work_order.recalculate_costs()
