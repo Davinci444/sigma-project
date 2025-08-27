@@ -1,0 +1,15 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div id="content-main">
+    <div style="padding: 20px; background: #f5f5f5; border: 1px solid #ddd; margin-bottom: 20px; border-radius: 8px;">
+        <h2>Acciones Rápidas</h2>
+        <a href="{% url 'upload_fuel_file' %}" class="button" style="background-color: #4CAF50; color: white; padding: 15px 25px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; border-radius: 5px;">
+            Importar Tanqueos (Excel)
+        </a>
+        <p style="margin-top: 10px;">Haz clic aquí para subir el archivo <strong>GESTION DE COMBUSTIBLE.XLSX</strong> y actualizar el kilometraje de todos los vehículos.</p>
+    </div>
+    {{ block.super }}
+</div>
+{% endblock %}
