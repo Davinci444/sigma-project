@@ -3,13 +3,34 @@
 
 {% block content %}
 <div id="content-main">
+    
+    <!-- Bloque de Acciones Rápidas (Importar Excel) -->
     <div style="padding: 20px; background: #f5f5f5; border: 1px solid #ddd; margin-bottom: 20px; border-radius: 8px;">
         <h2>Acciones Rápidas</h2>
         <a href="{% url 'upload_fuel_file' %}" class="button" style="background-color: #4CAF50; color: white; padding: 15px 25px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; border-radius: 5px;">
             Importar Tanqueos (Excel)
         </a>
-        <p style="margin-top: 10px;">Haz clic aquí para subir el archivo <strong>GESTION DE COMBUSTIBLE.XLSX</strong> y actualizar el kilometraje de todos los vehículos.</p>
+        <p style="margin-top: 10px;">Haz clic aquí para subir el archivo <strong>GESTION DE COMBUSTIBLE.XLSX</strong> y actualizar el kilometraje.</p>
     </div>
+
+    <!-- NUEVO: Bloque de Vista Operativa -->
+    <div style="padding: 20px; background: #e3f2fd; border: 1px solid #90caf9; margin-bottom: 20px; border-radius: 8px;">
+        <h2>Vista Operativa del Taller</h2>
+        <ul style="list-style-type: none; padding-left: 0;">
+            <li style="margin-bottom: 10px;">
+                <a href="{% url 'admin:workorders_workorder_changelist' %}?operational_status=in_workshop" class="button" style="padding: 10px 15px; font-size: 14px;">
+                    Ver Vehículos en Taller ({{ in_workshop_count }})
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'admin:workorders_workorder_changelist' %}?operational_status=scheduled" class="button" style="padding: 10px 15px; font-size: 14px;">
+                    Ver Vehículos Programados ({{ scheduled_count }})
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Contenido original del admin (listas de modelos) -->
     {{ block.super }}
 </div>
 {% endblock %}
