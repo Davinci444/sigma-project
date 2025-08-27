@@ -1,5 +1,6 @@
-# workorders/admin.py (Versión Final con todas las mejoras)
+# workorders/admin.py (Versión con filtros operativos)
 from django.contrib import admin
+from django.utils import timezone
 from .models import (
     MaintenancePlan, 
     WorkOrder, 
@@ -8,6 +9,41 @@ from .models import (
     MaintenanceCategory,
     MaintenanceSubcategory
 )
+
+# --- NUEVO: Filtro Inteligente para Estado Operativo ---
+class OperationalStatusFilter(admin.SimpleListFilter):
+    title = 'Estado Operativo' # El título del filtro
+    parameter_name = 'operational_status' # El nombre en la URL
+
+    def lookups(self, request, model_admin):
+        # Las opciones que aparecerán en el filtro
+        return (
+            ('in_workshop', 'Vehículos en Taller'),
+            ('scheduled', 'Vehículos Programados'),
+        )
+
+    def queryset(self, request, queryset):
+        # La lógica que se aplica al seleccionar una opción
+        today = timezone.now()
+        
+        if self.value() == 'in_workshop':
+            # "En Taller": Tienen ingreso real y no están cerradas/canceladas
+            return queryset.filter(
+                check_in_at__isnull=False,
+                check_in_at__lte=today
+            ).exclude(
+                status__in=[WorkOrder.OrderStatus.VERIFIED, WorkOrder.OrderStatus.CANCELLED]
+            )
+        
+        if self.value() == 'scheduled':
+            # "Programados": Tienen fecha de inicio futura y están en estado 'Programada'
+            return queryset.filter(
+                status=WorkOrder.OrderStatus.SCHEDULED,
+                scheduled_start__isnull=False,
+                scheduled_start__gt=today
+            )
+        return queryset
+
 
 class MaintenanceSubcategoryInline(admin.TabularInline):
     model = MaintenanceSubcategory
@@ -35,12 +71,13 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    # --- AÑADIMOS 'order_type' A LA VISTA ---
     list_display = ('id', 'order_type', 'vehicle', 'status', 'priority', 'scheduled_start')
     search_fields = ('id', 'vehicle__plate', 'description')
-    list_filter = ('status', 'priority', 'order_type')
+    
+    # --- MODIFICACIÓN: Añadimos nuestro nuevo filtro ---
+    list_filter = (OperationalStatusFilter, 'status', 'priority', 'order_type')
+    
     inlines = [WorkOrderTaskInline, WorkOrderPartInline]
-
     fieldsets = (
         ('Información Principal', {
             'fields': ('order_type', 'vehicle', 'status', 'priority', 'assigned_technician')
@@ -61,7 +98,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
     def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
         # ... (código del banner sin cambios)
         from django.contrib import messages
-        from django.utils import timezone
         from datetime import timedelta
         if obj and obj.vehicle:
             vehicle = obj.vehicle
