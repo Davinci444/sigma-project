@@ -1,4 +1,4 @@
-"""Views for administrative utilities in the core application."""
+"""Vistas utilitarias administrativas del núcleo (core)."""
 
 import logging
 import os
@@ -44,7 +44,7 @@ def upload_fuel_file_view(request):
                 tmp.flush()
 
             output = StringIO()
-            # Usa el comando robusto de importación (idempotente por hash)
+            # Comando robusto (idempotente por hash)
             call_command(
                 "import_odometer",
                 file_path=tmp_path,
@@ -90,7 +90,7 @@ def upload_fuel_file_view(request):
 @user_passes_test(lambda u: u.is_superuser)
 @require_http_methods(["POST", "GET"])
 def run_periodic_checks_view(request):
-    """Run periodic system checks via management command."""
+    """Ejecuta revisiones periódicas (comando)."""
     try:
         output = StringIO()
         call_command("run_periodic_checks", stdout=output)
@@ -107,4 +107,19 @@ def run_periodic_checks_view(request):
         messages.error(request, f"Ocurrió un error al ejecutar las revisiones: {e}")
 
     return redirect("admin:index")
-    
+
+
+@user_passes_test(lambda u: u.is_superuser)
+@require_http_methods(["POST", "GET"])
+def seed_taxonomy_view(request):
+    """Carga/actualiza la taxonomía de categorías y subcategorías para WorkOrderTask."""
+    try:
+        output = StringIO()
+        call_command("seed_maintenance_taxonomy", stdout=output)
+        msg = output.getvalue()
+        messages.success(request, f"Taxonomía de mantenimiento cargada. {msg}")
+    except Exception as e:
+        logger.exception("Error al cargar la taxonomía de mantenimiento")
+        messages.error(request, f"Ocurrió un error al cargar la taxonomía: {e}")
+
+    return redirect("admin:index")
