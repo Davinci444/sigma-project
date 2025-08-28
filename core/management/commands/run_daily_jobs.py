@@ -1,4 +1,5 @@
 # core/management/commands/run_daily_jobs.py
+"""Management command to process daily fuel fills and related tasks."""
 
 import pandas as pd
 from django.core.management.base import BaseCommand
@@ -11,27 +12,49 @@ from fleet.models import Vehicle
 from core.models import FuelFill, OdometerReading, Alert
 from workorders.models import MaintenancePlan
 
+
 class Command(BaseCommand):
+    """Handle daily processing of fuel files and maintenance updates."""
+
     help = "Procesa tanqueos, novedades y recalcula los planes de mantenimiento."
 
     def add_arguments(self, parser):
-        parser.add_argument('--file_path', type=str, help='La ruta completa al archivo XLSX a procesar.')
+        """Add command-line arguments.
+
+        Args:
+            parser (ArgumentParser): Parser to add arguments to.
+        """
+
+        parser.add_argument("--file_path", type=str, help="La ruta completa al archivo XLSX a procesar.")
 
     def handle(self, *args, **kwargs):
-        file_path = kwargs.get('file_path')
+        """Execute the command.
+
+        Args:
+            *args: Positional arguments passed to the command.
+            **kwargs: Keyword arguments containing ``file_path``.
+        """
+
+        file_path = kwargs.get("file_path")
         if not file_path:
             self.stdout.write(self.style.ERROR("Error: Se debe proporcionar la ruta del archivo con --file_path."))
             return
 
         self.stdout.write(self.style.SUCCESS(f"[{timezone.now()}] Iniciando proceso desde '{os.path.basename(file_path)}'"))
-        
+
         self.process_tanqueos(file_path)
         self.process_novedades(file_path)
-        self.recalculate_maintenance_plans() # <-- NUEVA FUNCIÓN
+        self.recalculate_maintenance_plans()  # <-- NUEVA FUNCIÓN
 
         self.stdout.write(self.style.SUCCESS(f"[{timezone.now()}] Proceso completado."))
 
     def process_tanqueos(self, file_path):
+        """Import fuel fill records from the provided Excel file.
+
+        Args:
+            file_path (str): Path to the Excel file to process.
+        """
+
         # ... (esta función se queda exactamente igual que antes)
         self.stdout.write(self.style.WARNING("\n--- Procesando Hoja de TANQUEOS ---"))
         try:
@@ -95,6 +118,12 @@ class Command(BaseCommand):
 
 
     def process_novedades(self, file_path):
+        """Process odometer issues from the spreadsheet.
+
+        Args:
+            file_path (str): Path to the Excel file to process.
+        """
+
         # ... (esta función se queda exactamente igual que antes)
         self.stdout.write(self.style.WARNING("\n--- Procesando Hoja de NOVEDADES ---"))
         try:
@@ -146,6 +175,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Novedades de odómetro procesadas: {novedades_procesadas} vehículos actualizados a 'Inválido'."))
 
     def recalculate_maintenance_plans(self):
+        """Recalculate active maintenance plans and create pending alerts."""
+
         self.stdout.write(self.style.WARNING("\n--- Recalculando Planes de Mantenimiento y Generando Alertas ---"))
         
         active_plans = MaintenancePlan.objects.filter(is_active=True).select_related('vehicle')

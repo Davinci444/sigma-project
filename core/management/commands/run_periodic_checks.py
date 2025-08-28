@@ -1,4 +1,6 @@
 # core/management/commands/run_periodic_checks.py
+"""Management command for periodic system checks and maintenance seeding."""
+
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
@@ -7,10 +9,15 @@ from fleet.models import Vehicle
 from core.models import Alert
 from workorders.models import MaintenancePlan, MaintenanceManual, ManualTask
 
+
 class Command(BaseCommand):
+    """Execute periodic checks such as document expiration and manual seeding."""
+
     help = "Ejecuta revisiones y siembra los manuales de mantenimiento si es necesario."
 
     def handle(self, *args, **kwargs):
+        """Run scheduled tasks."""
+
         self.stdout.write(self.style.SUCCESS(f"[{timezone.now()}] Iniciando Tareas Programadas..."))
         self.seed_maintenance_manuals()
         self.check_document_expirations()
@@ -18,7 +25,9 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"[{timezone.now()}] Tareas Programadas completadas."))
 
     def seed_maintenance_manuals(self):
-        self.stdout.write(self.style.WARNING('\n--- Verificando Manuales de Mantenimiento ---'))
+        """Ensure default maintenance manuals exist."""
+
+        self.stdout.write(self.style.WARNING("\n--- Verificando Manuales de Mantenimiento ---"))
         
         # --- Plan de Mantenimiento DIÉSEL ---
         diesel_manual, created = MaintenanceManual.objects.get_or_create(
@@ -57,6 +66,13 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Verificación de manuales completada.'))
 
     def create_tasks_for_manual(self, manual, tasks_dict):
+        """Create cumulative tasks for a maintenance manual.
+
+        Args:
+            manual (MaintenanceManual): Manual to attach tasks to.
+            tasks_dict (dict): Mapping of mileage milestones to task lists.
+        """
+
         all_tasks_for_milestone = set()
         # Creamos las tareas base primero
         base_tasks = tasks_dict.get(10000, [])
@@ -84,6 +100,8 @@ class Command(BaseCommand):
             all_tasks_for_milestone.clear()
 
     def check_document_expirations(self):
+        """Generate alerts for vehicles with upcoming document expirations."""
+
         self.stdout.write(self.style.WARNING("\n--- Verificando Vencimiento de Documentos ---"))
         today = timezone.now().date()
         alert_threshold = today + timedelta(days=30)
@@ -126,6 +144,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Verificación de documentos completada. {alerts_created} nuevas alertas generadas."))
 
     def recalculate_maintenance_plans(self):
+        """Recalculate maintenance plans and create alerts if needed."""
+
         self.stdout.write(self.style.WARNING("\n--- Recalculando Planes de Mantenimiento ---"))
         active_plans = MaintenancePlan.objects.filter(is_active=True).select_related('vehicle', 'manual')
         alerts_created = 0
