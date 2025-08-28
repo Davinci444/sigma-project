@@ -1,13 +1,15 @@
 # core/views.py
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import user_passes_test
-from django.core.files.storage import FileSystemStorage
 from django.core.management import call_command
 from django.contrib import messages
-import os
-from django.conf import settings
+import logging
+import tempfile
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from .forms import FileUploadForm
 from io import StringIO
+
+logger = logging.getLogger(__name__)
 
 @user_passes_test(lambda u: u.is_superuser)
 def upload_fuel_file_view(request):
@@ -15,17 +17,32 @@ def upload_fuel_file_view(request):
         form = FileUploadForm(request.POST, request.FILES)
         if form.is_valid():
             uploaded_file = request.FILES['file']
-            fs = FileSystemStorage(location=os.path.join(settings.BASE_DIR, 'tmp'))
-            filename = fs.save(uploaded_file.name, uploaded_file)
-            file_path = fs.path(filename)
+            if not isinstance(uploaded_file, InMemoryUploadedFile):
+                uploaded_file = InMemoryUploadedFile(
+                    uploaded_file.file,
+                    field_name='file',
+                    name=uploaded_file.name,
+                    content_type=uploaded_file.content_type,
+                    size=uploaded_file.size,
+                    charset=uploaded_file.charset,
+                )
+            if not uploaded_file.name.lower().endswith('.xlsx'):
+                messages.error(request, "Solo se permiten archivos con extensión .xlsx")
+                return redirect('admin:index')
             try:
-                output = StringIO()
-                call_command('run_daily_jobs', f'--file_path={file_path}', stdout=output)
-                messages.success(request, f"Archivo '{filename}' procesado. Resumen: {output.getvalue()}")
-            except Exception as e:
-                messages.error(request, f"Ocurrió un error al procesar el archivo: {e}")
-            finally:
-                fs.delete(filename)
+                with tempfile.NamedTemporaryFile(suffix=".xlsx") as tmp_file:
+                    for chunk in uploaded_file.chunks():
+                        tmp_file.write(chunk)
+                    tmp_file.flush()
+                    output = StringIO()
+                    call_command('run_daily_jobs', f'--file_path={tmp_file.name}', stdout=output)
+                    messages.success(
+                        request,
+                        f"Archivo '{uploaded_file.name}' procesado. Resumen: {output.getvalue()}",
+                    )
+            except Exception:
+                logger.exception("Error al procesar el archivo de combustible")
+                messages.error(request, "Ocurrió un error al procesar el archivo.")
             return redirect('admin:index')
     else:
         form = FileUploadForm()
