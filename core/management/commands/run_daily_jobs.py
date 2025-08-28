@@ -19,43 +19,39 @@ class Command(BaseCommand):
     help = "Procesa tanqueos, novedades y recalcula los planes de mantenimiento."
 
     def add_arguments(self, parser):
-        """Add command-line arguments.
-
-        Args:
-            parser (ArgumentParser): Parser to add arguments to.
-        """
-
-        parser.add_argument("--file_path", type=str, help="La ruta completa al archivo XLSX a procesar.")
+        """Add command-line arguments."""
+        # Hacemos que el argumento sea opcional para que funcione en la consola
+        parser.add_argument(
+            "--file_path",
+            type=str,
+            required=False,
+            help="Ruta opcional al archivo XLSX a procesar.",
+        )
 
     def handle(self, *args, **kwargs):
-        """Execute the command.
-
-        Args:
-            *args: Positional arguments passed to the command.
-            **kwargs: Keyword arguments containing ``file_path``.
-        """
-
+        """Execute the command."""
         file_path = kwargs.get("file_path")
+
+        # --- LÓGICA INTELIGENTE ---
+        # Si no nos dan una ruta (ej: desde la consola), la pedimos.
         if not file_path:
-            self.stdout.write(self.style.ERROR("Error: Se debe proporcionar la ruta del archivo con --file_path."))
+            file_path_input = input("Por favor, arrastra el archivo 'GESTION DE COMBUSTIBLE.XLSX' a esta ventana y presiona Enter: ").strip()
+            file_path = file_path_input.strip('"')
+
+        if not file_path or not os.path.exists(file_path):
+            self.stdout.write(self.style.ERROR("No se proporcionó una ruta de archivo válida. Proceso cancelado."))
             return
 
         self.stdout.write(self.style.SUCCESS(f"[{timezone.now()}] Iniciando proceso desde '{os.path.basename(file_path)}'"))
 
         self.process_tanqueos(file_path)
         self.process_novedades(file_path)
-        self.recalculate_maintenance_plans()  # <-- NUEVA FUNCIÓN
-
-        self.stdout.write(self.style.SUCCESS(f"[{timezone.now()}] Proceso completado."))
+        # Nota: El recálculo de planes ahora se hace desde el comando 'run_periodic_checks'
+        # para separar responsabilidades. Este comando solo se enfoca en la ingesta de datos.
+        self.stdout.write(self.style.SUCCESS(f"[{timezone.now()}] Proceso de ingesta de archivo completado."))
 
     def process_tanqueos(self, file_path):
-        """Import fuel fill records from the provided Excel file.
-
-        Args:
-            file_path (str): Path to the Excel file to process.
-        """
-
-        # ... (esta función se queda exactamente igual que antes)
+        """Import fuel fill records from the provided Excel file."""
         self.stdout.write(self.style.WARNING("\n--- Procesando Hoja de TANQUEOS ---"))
         try:
             df = pd.read_excel(file_path, sheet_name='TANQUEOS')
@@ -105,9 +101,22 @@ class Command(BaseCommand):
                     )
                     continue
 
+                # --- LÓGICA CORREGIDA ---
                 if not FuelFill.objects.filter(vehicle=vehicle, fill_date=row['FECHA'], odometer_km=kilometraje).exists():
-                    FuelFill.create(...)
-                    OdometerReading.create(...)
+                    FuelFill.objects.create(
+                        vehicle=vehicle,
+                        fill_date=row['FECHA'],
+                        odometer_km=kilometraje,
+                        gallons=row.get('GALONES', 0),
+                        notes=row.get('OBSERVACIONES', ''),
+                        source_file=os.path.basename(file_path)
+                    )
+                    OdometerReading.objects.create(
+                        vehicle=vehicle,
+                        reading_km=kilometraje,
+                        reading_date=row['FECHA'],
+                        source=OdometerReading.Source.FUEL_FILL
+                    )
                     vehicle.current_odometer_km = kilometraje
                     vehicle.save()
                     new_readings += 1
@@ -116,15 +125,8 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS(f"Tanqueos procesados: {processed_count}. Nuevas lecturas válidas: {new_readings}."))
 
-
     def process_novedades(self, file_path):
-        """Process odometer issues from the spreadsheet.
-
-        Args:
-            file_path (str): Path to the Excel file to process.
-        """
-
-        # ... (esta función se queda exactamente igual que antes)
+        """Process odometer issues from the spreadsheet."""
         self.stdout.write(self.style.WARNING("\n--- Procesando Hoja de NOVEDADES ---"))
         try:
             df = pd.read_excel(file_path, sheet_name='NOVEDADES')
@@ -151,15 +153,12 @@ class Command(BaseCommand):
             for index, row in df_problemas.iterrows():
                 placa = row['VEHICULO']
                 observacion = row['OBSERVACIONES']
-
                 try:
                     vehicle = Vehicle.objects.get(plate=placa)
                     if vehicle.odometer_status == Vehicle.OdometerStatus.INVALID:
                         continue
-
                     vehicle.odometer_status = Vehicle.OdometerStatus.INVALID
                     vehicle.save()
-
                     Alert.objects.get_or_create(
                         alert_type=Alert.AlertType.ODOMETER_UNAVAILABLE,
                         related_vehicle=vehicle,
@@ -173,56 +172,3 @@ class Command(BaseCommand):
                     continue
 
         self.stdout.write(self.style.SUCCESS(f"Novedades de odómetro procesadas: {novedades_procesadas} vehículos actualizados a 'Inválido'."))
-
-    def recalculate_maintenance_plans(self):
-        """Recalculate active maintenance plans and create pending alerts."""
-
-        self.stdout.write(self.style.WARNING("\n--- Recalculando Planes de Mantenimiento y Generando Alertas ---"))
-        
-        active_plans = MaintenancePlan.objects.filter(is_active=True).select_related('vehicle')
-        alerts_created = 0
-
-        for plan in active_plans:
-            vehicle = plan.vehicle
-            
-            # Estrategia 1: Kilometraje (si el odómetro es válido)
-            if vehicle.odometer_status == Vehicle.OdometerStatus.VALID:
-                next_due_km = plan.last_service_km + plan.threshold_km
-                km_remaining = next_due_km - vehicle.current_odometer_km
-                
-                # Alerta de Vencimiento por KM
-                if km_remaining <= plan.grace_km:
-                    # Usamos get_or_create para no duplicar la misma alerta
-                    _, created = Alert.objects.get_or_create(
-                        alert_type=Alert.AlertType.PREVENTIVE_DUE,
-                        related_vehicle=vehicle,
-                        seen=False, # Solo creamos si no hay una alerta abierta para esto
-                        defaults={
-                            'severity': Alert.Severity.CRITICAL if km_remaining <= 0 else Alert.Severity.WARNING,
-                            'message': f"Mantenimiento preventivo para {vehicle.plate} requerido. "
-                                       f"Vencido por KM. Próximo servicio a los {next_due_km} km (faltan {km_remaining} km)."
-                        }
-                    )
-                    if created: alerts_created += 1
-
-            # Estrategia 2: Tiempo (como respaldo si el odómetro es inválido o como plan principal)
-            else: # vehicle.odometer_status == Vehicle.OdometerStatus.INVALID
-                if plan.last_service_date:
-                    next_due_date = plan.last_service_date + timedelta(days=plan.threshold_days)
-                    days_remaining = (next_due_date - timezone.now().date()).days
-                    
-                    # Alerta de Vencimiento por Tiempo
-                    if days_remaining <= 30: # Alertar con 30 días de antelación
-                        _, created = Alert.objects.get_or_create(
-                            alert_type=Alert.AlertType.PREVENTIVE_DUE,
-                            related_vehicle=vehicle,
-                            seen=False,
-                            defaults={
-                                'severity': Alert.Severity.CRITICAL if days_remaining <= 0 else Alert.Severity.WARNING,
-                                'message': f"Mantenimiento preventivo para {vehicle.plate} requerido. "
-                                           f"Vencido por TIEMPO (Odómetro inválido). Próximo servicio el {next_due_date} (faltan {days_remaining} días)."
-                            }
-                        )
-                        if created: alerts_created += 1
-        
-        self.stdout.write(self.style.SUCCESS(f"Recálculo completado. {alerts_created} nuevas alertas de mantenimiento generadas."))
