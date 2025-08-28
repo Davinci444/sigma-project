@@ -7,18 +7,21 @@ from workorders.models import MaintenancePlan, MaintenanceManual
 
 logger = logging.getLogger(__name__)
 
+
 @receiver(post_save, sender=Vehicle)
 def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwargs):
-    """Asignar un plan de mantenimiento cuando se crea un vehículo.
+    """
+    Asigna automáticamente un plan de mantenimiento cuando se crea un vehículo.
 
     - Si el vehículo ya tiene plan, no hace nada.
-    - Sólo actúa cuando el vehículo se crea y tiene `fuel_type` definido.
+    - Solo actúa cuando el vehículo se crea y tiene `fuel_type` definido.
     """
+
     # Evitar duplicados
     if MaintenancePlan.objects.filter(vehicle=instance).exists():
         return
 
-    # Sólo al crear y si tiene tipo de combustible
+    # Solo al crear y si tiene tipo de combustible
     if not (created and instance.fuel_type):
         return
 
@@ -40,11 +43,14 @@ def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwa
         )
         logger.warning(
             "Múltiples manuales para fuel_type=%s; usando '%s' (vehículo %s).",
-            instance.fuel_type, manual.name if manual else "N/A", instance.plate
+            instance.fuel_type,
+            manual.name if manual else "N/A",
+            instance.plate
         )
         if manual is None:
             return
 
+    # Crear plan de mantenimiento
     MaintenancePlan.objects.create(vehicle=instance, manual=manual)
     logger.info(
         "Plan de mantenimiento '%s' asignado automáticamente a %s.",
