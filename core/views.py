@@ -1,5 +1,4 @@
-"""Views for administrative utilities in the core application."""
-
+# core/views.py
 import logging
 import os
 import tempfile
@@ -52,18 +51,18 @@ def upload_fuel_file_view(request):
 
         tmp_path = None
         try:
-            # En Windows es más seguro delete=False; lo borramos manualmente en finally
+            # Creamos un archivo temporal seguro para procesar la subida
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_file:
                 tmp_path = tmp_file.name
                 for chunk in uploaded_file.chunks():
                     tmp_file.write(chunk)
                 tmp_file.flush()
 
-            # Ejecutar el management command con kwargs (NO pasar '--file_path=...')
+            # Ejecutamos el management command, pasándole la ruta al archivo temporal
             output = StringIO()
             call_command("run_daily_jobs", file_path=tmp_path, stdout=output)
 
-            # Evitar mensajes gigantes en el admin
+            # Acortamos el mensaje de resumen si es muy largo para el admin
             msg = output.getvalue()
             preview = (msg[:600] + "…") if len(msg) > 600 else msg
 
@@ -75,15 +74,16 @@ def upload_fuel_file_view(request):
             logger.exception("Error al procesar el archivo de combustible")
             messages.error(request, f"Ocurrió un error al procesar el archivo: {e}")
         finally:
+            # Nos aseguramos de borrar el archivo temporal sin importar lo que pase
             if tmp_path and os.path.exists(tmp_path):
                 try:
                     os.remove(tmp_path)
                 except Exception:
-                    logger.warning("No se pudo eliminar el temporal: %s", tmp_path)
+                    logger.warning("No se pudo eliminar el archivo temporal: %s", tmp_path)
 
         return redirect("admin:index")
 
-    # GET
+    # Método GET: mostramos el formulario vacío
     form = FileUploadForm()
     return render(
         request,
@@ -98,7 +98,7 @@ def upload_fuel_file_view(request):
 
 
 @user_passes_test(lambda u: u.is_superuser)
-@require_http_methods(["POST", "GET"])  # si deseas, deja solo POST
+@require_http_methods(["POST", "GET"])
 def run_periodic_checks_view(request):
     """Run periodic system checks via management command."""
     try:
