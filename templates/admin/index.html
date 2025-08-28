@@ -33,10 +33,18 @@
     <!-- Bloque de Reportes Gerenciales -->
     <div style="padding: 20px; background: #e8f5e9; border: 1px solid #a5d6a7; margin-bottom: 20px; border-radius: 8px;">
         <h2>Reportes Gerenciales</h2>
-        <a href="{% url 'report_vehicle_costs' %}" class="button" style="background-color: #1565C0; color: white; padding: 10px 15px; font-size: 14px;">
-            Descargar Reporte de Costos por Vehículo (CSV)
-        </a>
-        <p style="margin-top: 10px;">Genera un archivo CSV con el desglose de costos totales para cada vehículo de la flota.</p>
+        <ul style="list-style-type: none; padding-left: 0;">
+            <li style="margin-bottom: 10px;">
+                <a href="{% url 'report_vehicle_costs' %}" class="button" style="background-color: #1565C0; color: white; padding: 10px 15px; font-size: 14px;">
+                    Descargar Reporte de Costos por Vehículo (CSV)
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'report_preventive_compliance' %}" class="button" style="background-color: #2E7D32; color: white; padding: 10px 15px; font-size: 14px;">
+                    Descargar Reporte de Cumplimiento de Preventivos (CSV)
+                </a>
+            </li>
+        </ul>
     </div>
 
     <!-- Contenido original del admin (listas de modelos) -->
