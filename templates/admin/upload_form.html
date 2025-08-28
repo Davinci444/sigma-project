@@ -3,20 +3,22 @@
 
 {% block content %}
   <div id="content-main">
-    <h1>{{ title }}</h1>
-    <form method="post" enctype="multipart/form-data" style="margin: 20px 0;">
-      {% csrf_token %}
-      <p>
-        <label for="id_file"><strong>Archivo Excel (.xlsx) — Hoja TANQUEOS</strong></label><br>
-        {{ form.file }}
-      </p>
-      <button type="submit" class="button default">Subir y procesar</button>
-      <a href="{% url 'admin:index' %}" class="button">Cancelar</a>
-    </form>
+    <div style="padding:20px; background:#f5f5f5; border:1px solid #ddd; margin-bottom:20px;">
+      <h2>Acciones rápidas</h2>
 
-    <p style="color:#555">
-      Este proceso actualiza <strong>Vehicle.current_odometer_km</strong> tomando el <em>máximo KILOMETRAJE por PLACA</em>.<br>
-      Si subes exactamente el mismo archivo otra vez, <strong>no se re-procesa</strong> (registro por hash).
-    </p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="{% url 'upload_fuel_file' %}" class="button default">Importar Tanqueos (Excel)</a>
+        <a href="/api/fleet/garage/" class="button">Vehículos en Taller</a>
+        <a href="/api/workorders/schedule/" class="button">Programación por Fecha</a>
+      </div>
+
+      <p style="margin-top:10px; color:#555;">
+        • <strong>Importar Tanqueos</strong>: sube el Excel para actualizar odómetros y registrar la carga (anti-reprocesos).<br>
+        • <strong>Vehículos en Taller</strong>: lista de vehículos con estado <em>IN_REPAIR</em>.<br>
+        • <strong>Programación por Fecha</strong>: OTs agrupadas por fecha programada.
+      </p>
+    </div>
+
+    {{ block.super }}
   </div>
 {% endblock %}

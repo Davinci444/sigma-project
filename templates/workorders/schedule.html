@@ -1,0 +1,42 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+  <div id="content-main">
+    <h1>{{ title }}</h1>
+
+    {% if days %}
+      {% for day in days %}
+        <h2 style="margin-top:20px;">{{ day }}</h2>
+        <table class="listing">
+          <thead>
+            <tr>
+              <th>OT</th>
+              <th>Estado</th>
+              <th>Prioridad</th>
+              <th>Vehículo</th>
+              <th>Placa</th>
+              <th>Inicio Programado</th>
+              <th>Fin Programado</th>
+              <th>Tipo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ot in grouped.day %}
+              <tr>
+                <td>#{{ ot.id }}</td>
+                <td>{{ ot.get_status_display }}</td>
+                <td>{{ ot.get_priority_display }}</td>
+                <td>{{ ot.vehicle.brand }} {{ ot.vehicle.model }}</td>
+                <td>{{ ot.vehicle.plate }}</td>
+                <td>{{ ot.scheduled_start|default:"—" }}</td>
+                <td>{{ ot.scheduled_end|default:"—" }}</td>
+                <td>{{ ot.get_order_type_display }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endfor %}
+    {% else %}
+      <p>No hay OTs programadas.</p>
+    {% endif %}
+  </div>
+{% endblock %}

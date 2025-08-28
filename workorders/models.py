@@ -322,3 +322,54 @@ def on_part_change(sender, instance, **kwargs):
 
     instance.work_order.recalculate_costs()
 
+# --- ACTIVACIÓN DE PLAN AL CERRAR PRIMER PREVENTIVO ---
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
+
+@receiver(post_save, sender=WorkOrder)
+def activate_plan_on_first_preventive(sender, instance: WorkOrder, created, **kwargs):
+    """
+    Cuando una OT Preventiva se marca COMPLETED:
+    - Activa el plan de mantenimiento del vehículo (si no estaba activo).
+    - Actualiza last_service_km y last_service_date con el odómetro actual.
+    """
+    try:
+        if instance.order_type != WorkOrder.OrderType.PREVENTIVE:
+            return
+        if instance.status != WorkOrder.OrderStatus.COMPLETED:
+            return
+
+        vehicle = instance.vehicle
+        # Busca (o crea) el plan asociado al vehículo
+        from .models import MaintenancePlan, MaintenanceManual
+        plan, _ = MaintenancePlan.objects.get_or_create(
+            vehicle=vehicle,
+            defaults={
+                "manual": MaintenanceManual.objects.filter(fuel_type=vehicle.fuel_type).first(),
+                "is_active": False,
+                "last_service_km": 0,
+            },
+        )
+
+        updated_fields = []
+
+        # Actualiza el último servicio al odómetro actual si es mayor
+        current_km = vehicle.current_odometer_km or 0
+        if current_km > (plan.last_service_km or 0):
+            plan.last_service_km = current_km
+            plan.last_service_date = timezone.now().date()
+            updated_fields += ["last_service_km", "last_service_date"]
+
+        # Activa el plan si aún no lo estaba
+        if not plan.is_active:
+            plan.is_active = True
+            updated_fields.append("is_active")
+
+        if updated_fields:
+            plan.save(update_fields=updated_fields)
+
+    except Exception:
+        # No interrumpir el flujo de guardado por errores en señales
+        import logging
+        logging.getLogger(__name__).exception("Error al activar plan preventivo")

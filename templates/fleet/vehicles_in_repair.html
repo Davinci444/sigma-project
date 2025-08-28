@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+  <div id="content-main">
+    <h1>{{ title }}</h1>
+    {% if vehicles %}
+      <table class="listing">
+        <thead>
+          <tr>
+            <th>Placa</th>
+            <th>Marca</th>
+            <th>Modelo</th>
+            <th>Kilometraje</th>
+            <th>Notas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in vehicles %}
+            <tr>
+              <td>{{ v.plate }}</td>
+              <td>{{ v.brand }}</td>
+              <td>{{ v.model }}</td>
+              <td>{{ v.current_odometer_km|default:"—" }}</td>
+              <td>{{ v.notes|default:"" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No hay vehículos en reparación.</p>
+    {% endif %}
+  </div>
+{% endblock %}
