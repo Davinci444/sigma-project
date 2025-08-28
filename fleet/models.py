@@ -1,6 +1,6 @@
 # fleet/models.py
 from django.db import models
-from core.models import Zone # Importamos el nuevo modelo Zone
+from core.models import Zone
 
 class Vehicle(models.Model):
     class VehicleStatus(models.TextChoices):
@@ -9,12 +9,10 @@ class Vehicle(models.Model):
         SOLD = 'SOLD', 'Vendido'
         INACTIVE = 'INACTIVE', 'Inactivo'
 
+    # --- OPCIONES DE COMBUSTIBLE SIMPLIFICADAS ---
     class FuelType(models.TextChoices):
         GASOLINE = 'GASOLINE', 'Gasolina'
         DIESEL = 'DIESEL', 'Diésel'
-        ELECTRIC = 'ELECTRIC', 'Eléctrico'
-        HYBRID = 'HYBRID', 'Híbrido'
-        GAS = 'GAS', 'Gas'
 
     class OdometerStatus(models.TextChoices):
         VALID = 'VALID', 'Válido'
@@ -29,7 +27,6 @@ class Vehicle(models.Model):
     fuel_type = models.CharField("Tipo de Combustible", max_length=20, choices=FuelType.choices, default=FuelType.DIESEL)
     status = models.CharField("Estado", max_length=20, choices=VehicleStatus.choices, default=VehicleStatus.ACTIVE)
     
-    # --- CAMPO AÑADIDO ---
     current_zone = models.ForeignKey(Zone, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Zona Operativa Actual")
 
     current_odometer_km = models.PositiveIntegerField("Kilometraje Actual (km)", default=0, help_text="Última lectura válida del odómetro.")
@@ -45,7 +42,6 @@ class Vehicle(models.Model):
         verbose_name_plural = "Vehículos"
         ordering = ['plate']
 
-# --- NUEVO MODELO ---
 class VehicleZoneHistory(models.Model):
     """Guarda un registro histórico de las zonas por las que ha pasado un vehículo."""
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="zone_history")
