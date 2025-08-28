@@ -1,6 +1,14 @@
 """Admin configuration for the fleet application."""
 
+# core/admin.py (añade estas líneas)
 from django.contrib import admin
+from .models import FuelUploadLog
+
+@admin.register(FuelUploadLog)
+class FuelUploadLogAdmin(admin.ModelAdmin):
+    list_display = ("original_filename", "processed_at", "rows_processed", "vehicles_updated", "size_bytes")
+    search_fields = ("original_filename", "sha256")
+    readonly_fields = ("processed_at",)
 from .models import Vehicle, VehicleZoneHistory
 
 

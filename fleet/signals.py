@@ -18,7 +18,6 @@ def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwa
     - Solo actúa cuando el vehículo se crea y tiene `fuel_type` definido.
     - Usa transacción para evitar duplicados en situaciones de concurrencia.
     """
-
     if not (created and instance.fuel_type):
         return
 
@@ -58,3 +57,4 @@ def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwa
             "Condición de carrera detectada al asignar plan a %s, se ignoró duplicado.",
             instance.plate
         )
+    

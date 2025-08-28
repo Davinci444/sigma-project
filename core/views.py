@@ -1,4 +1,5 @@
-# core/views.py
+"""Views for administrative utilities in the core application."""
+
 import logging
 import os
 import tempfile
@@ -14,18 +15,11 @@ from .forms import FileUploadForm
 
 logger = logging.getLogger(__name__)
 
-# MIME types válidos para .xlsx (algunos navegadores varían)
-_XLSX_MIMES = {
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-excel",
-    "application/octet-stream",  # a veces llega así
-}
-
 
 @user_passes_test(lambda u: u.is_superuser)
 @require_http_methods(["GET", "POST"])
 def upload_fuel_file_view(request):
-    """Upload and process an Excel file containing fuel data (.xlsx only)."""
+    """Sube y procesa un Excel de tanqueos para actualizar odómetros y registrar la carga."""
     if request.method == "POST":
         form = FileUploadForm(request.POST, request.FILES)
         if not form.is_valid():
@@ -37,53 +31,49 @@ def upload_fuel_file_view(request):
             messages.error(request, "No se ha seleccionado ningún archivo.")
             return redirect("admin:index")
 
-        # Validación por extensión
         if not uploaded_file.name.lower().endswith(".xlsx"):
             messages.error(request, "Solo se permiten archivos con extensión .xlsx")
             return redirect("admin:index")
 
-        # Validación (best-effort) por MIME
-        if uploaded_file.content_type and uploaded_file.content_type not in _XLSX_MIMES:
-            logger.warning(
-                "Tipo de contenido inesperado para .xlsx: %s (archivo: %s)",
-                uploaded_file.content_type, uploaded_file.name
-            )
-
         tmp_path = None
         try:
-            # Creamos un archivo temporal seguro para procesar la subida
-            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp_file:
-                tmp_path = tmp_file.name
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+                tmp_path = tmp.name
                 for chunk in uploaded_file.chunks():
-                    tmp_file.write(chunk)
-                tmp_file.flush()
+                    tmp.write(chunk)
+                tmp.flush()
 
-            # Ejecutamos el management command, pasándole la ruta al archivo temporal
             output = StringIO()
-            call_command("run_daily_jobs", file_path=tmp_path, stdout=output)
+            # Usa el comando robusto de importación (idempotente por hash)
+            call_command(
+                "import_odometer",
+                file_path=tmp_path,
+                sheet_name="TANQUEOS",
+                user_id=request.user.id,
+                stdout=output,
+            )
 
-            # Acortamos el mensaje de resumen si es muy largo para el admin
             msg = output.getvalue()
             preview = (msg[:600] + "…") if len(msg) > 600 else msg
-
             messages.success(
                 request,
-                f"Archivo '{uploaded_file.name}' procesado correctamente. Resumen:\n{preview}",
+                f"Archivo '{uploaded_file.name}' procesado. Resumen:\n{preview}",
             )
+
         except Exception as e:
-            logger.exception("Error al procesar el archivo de combustible")
+            logger.exception("Error al procesar el archivo de tanqueos")
             messages.error(request, f"Ocurrió un error al procesar el archivo: {e}")
+
         finally:
-            # Nos aseguramos de borrar el archivo temporal sin importar lo que pase
             if tmp_path and os.path.exists(tmp_path):
                 try:
                     os.remove(tmp_path)
                 except Exception:
-                    logger.warning("No se pudo eliminar el archivo temporal: %s", tmp_path)
+                    logger.warning("No se pudo eliminar el temporal: %s", tmp_path)
 
         return redirect("admin:index")
 
-    # Método GET: mostramos el formulario vacío
+    # GET
     form = FileUploadForm()
     return render(
         request,
@@ -110,10 +100,11 @@ def run_periodic_checks_view(request):
 
         messages.success(
             request,
-            f"Revisiones periódicas ejecutadas con éxito. Resumen:\n{preview}",
+            f"Revisiones Periódicas ejecutadas con éxito. Resumen:\n{preview}",
         )
     except Exception as e:
         logger.exception("Error al ejecutar las revisiones periódicas")
         messages.error(request, f"Ocurrió un error al ejecutar las revisiones: {e}")
 
     return redirect("admin:index")
+    
