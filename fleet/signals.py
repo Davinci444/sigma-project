@@ -1,8 +1,11 @@
 # fleet/signals.py
+import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Vehicle
 from workorders.models import MaintenancePlan, MaintenanceManual
+
+logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Vehicle)
 def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwargs):
@@ -22,7 +25,11 @@ def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwa
             
             # Creamos el plan "dormido", enlazando el vehículo con el manual
             MaintenancePlan.objects.create(vehicle=instance, manual=manual)
-            print(f"Plan de mantenimiento '{manual.name}' asignado automáticamente a {instance.plate}.")
+            logger.info(
+                "Plan de mantenimiento '%s' asignado automáticamente a %s.",
+                manual.name,
+                instance.plate,
+            )
         except MaintenanceManual.DoesNotExist:
             # No hacemos nada si no hay un manual para ese tipo de combustible
             pass
