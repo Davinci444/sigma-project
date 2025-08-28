@@ -2,6 +2,7 @@
 import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.db import transaction, IntegrityError
 from .models import Vehicle
 from workorders.models import MaintenancePlan, MaintenanceManual
 
@@ -15,44 +16,45 @@ def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwa
 
     - Si el vehículo ya tiene plan, no hace nada.
     - Solo actúa cuando el vehículo se crea y tiene `fuel_type` definido.
+    - Usa transacción para evitar duplicados en situaciones de concurrencia.
     """
 
-    # Evitar duplicados
-    if MaintenancePlan.objects.filter(vehicle=instance).exists():
-        return
-
-    # Solo al crear y si tiene tipo de combustible
     if not (created and instance.fuel_type):
         return
 
     try:
-        manual = MaintenanceManual.objects.get(fuel_type=instance.fuel_type)
-    except MaintenanceManual.DoesNotExist:
+        with transaction.atomic():
+            manual = (
+                MaintenanceManual.objects
+                .filter(fuel_type=instance.fuel_type)
+                .order_by("id")
+                .first()
+            )
+
+            if not manual:
+                logger.warning(
+                    "No existe manual para fuel_type=%s (vehículo %s).",
+                    instance.fuel_type, instance.plate
+                )
+                return
+
+            plan, created_plan = MaintenancePlan.objects.get_or_create(
+                vehicle=instance, defaults={"manual": manual}
+            )
+
+            if created_plan:
+                logger.info(
+                    "Plan de mantenimiento '%s' asignado automáticamente a %s.",
+                    manual.name, instance.plate
+                )
+            else:
+                logger.info(
+                    "El vehículo %s ya tenía plan de mantenimiento asignado.",
+                    instance.plate
+                )
+
+    except IntegrityError:
         logger.warning(
-            "No existe manual para fuel_type=%s (vehículo %s).",
-            instance.fuel_type, instance.plate
-        )
-        return
-    except MaintenanceManual.MultipleObjectsReturned:
-        # Si hay varios, tomar el primero determinísticamente y advertir
-        manual = (
-            MaintenanceManual.objects
-            .filter(fuel_type=instance.fuel_type)
-            .order_by("id")
-            .first()
-        )
-        logger.warning(
-            "Múltiples manuales para fuel_type=%s; usando '%s' (vehículo %s).",
-            instance.fuel_type,
-            manual.name if manual else "N/A",
+            "Condición de carrera detectada al asignar plan a %s, se ignoró duplicado.",
             instance.plate
         )
-        if manual is None:
-            return
-
-    # Crear plan de mantenimiento
-    MaintenancePlan.objects.create(vehicle=instance, manual=manual)
-    logger.info(
-        "Plan de mantenimiento '%s' asignado automáticamente a %s.",
-        manual.name, instance.plate
-    )
