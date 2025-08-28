@@ -1,9 +1,15 @@
-# fleet/apps.py
+"""Configuration for the fleet application."""
+
 from django.apps import AppConfig
 
+
 class FleetConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'fleet'
+    """Application configuration for Fleet."""
+
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "fleet"
 
     def ready(self):
-        import fleet.signals # Importa y conecta las señales
+        """Connect application signals."""
+
+        import fleet.signals  # Importa y conecta las señales

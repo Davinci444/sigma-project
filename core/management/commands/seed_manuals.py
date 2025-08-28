@@ -1,15 +1,22 @@
 # core/management/commands/seed_manuals.py
+"""Management command to seed default maintenance manuals."""
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from workorders.models import MaintenanceManual, ManualTask
 from fleet.models import Vehicle
 
+
 class Command(BaseCommand):
-    help = 'Crea los manuales de mantenimiento estándar para Diésel y Gasolina.'
+    """Create standard maintenance manuals for different fuel types."""
+
+    help = "Crea los manuales de mantenimiento estándar para Diésel y Gasolina."
 
     @transaction.atomic
     def handle(self, *args, **kwargs):
-        self.stdout.write(self.style.SUCCESS('Iniciando la creación de manuales de mantenimiento...'))
+        """Execute manual seeding process."""
+
+        self.stdout.write(self.style.SUCCESS("Iniciando la creación de manuales de mantenimiento..."))
 
         # --- Plan de Mantenimiento DIÉSEL ---
         diesel_manual, created = MaintenanceManual.objects.get_or_create(
@@ -48,6 +55,13 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Proceso de siembra de manuales completado.'))
 
     def create_tasks_for_manual(self, manual, tasks_dict):
+        """Create cumulative tasks for a given manual.
+
+        Args:
+            manual (MaintenanceManual): Manual to populate.
+            tasks_dict (dict): Mapping of mileage milestones to task lists.
+        """
+
         # Función para crear las tareas de forma acumulativa
         all_tasks_for_milestone = set()
         for milestone in sorted(tasks_dict.keys()):
