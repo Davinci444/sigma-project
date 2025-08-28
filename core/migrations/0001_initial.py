@@ -9,29 +9,85 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('fleet', '0001_initial'),
-        ('inventory', '0001_initial'),
-        ('workorders', '0001_initial'),
+        ("fleet", "0001_initial"),
+        ("inventory", "0001_initial"),
+        ("workorders", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Alert',
+            name="Alert",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('alert_type', models.CharField(choices=[('DOC_EXPIRATION', 'Vencimiento de Documento'), ('LOW_STOCK', 'Stock Bajo'), ('PREVENTIVE_DUE', 'Preventivo Pendiente'), ('URGENT_OT', 'OT Urgente Creada')], max_length=30, verbose_name='Tipo de Alerta')),
-                ('message', models.CharField(max_length=255, verbose_name='Mensaje')),
-                ('severity', models.CharField(choices=[('INFO', 'Informativa'), ('WARNING', 'Advertencia'), ('CRITICAL', 'Crítica')], default='INFO', max_length=20, verbose_name='Severidad')),
-                ('seen', models.BooleanField(default=False, verbose_name='Vista')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('related_part', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='inventory.part')),
-                ('related_vehicle', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='fleet.vehicle')),
-                ('related_work_order', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='workorders.workorder')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "alert_type",
+                    models.CharField(
+                        choices=[
+                            ("DOC_EXPIRATION", "Vencimiento de Documento"),
+                            ("LOW_STOCK", "Stock Bajo"),
+                            ("PREVENTIVE_DUE", "Preventivo Pendiente"),
+                            ("URGENT_OT", "OT Urgente Creada"),
+                        ],
+                        max_length=30,
+                        verbose_name="Tipo de Alerta",
+                    ),
+                ),
+                ("message", models.CharField(max_length=255, verbose_name="Mensaje")),
+                (
+                    "severity",
+                    models.CharField(
+                        choices=[
+                            ("INFO", "Informativa"),
+                            ("WARNING", "Advertencia"),
+                            ("CRITICAL", "Crítica"),
+                        ],
+                        default="INFO",
+                        max_length=20,
+                        verbose_name="Severidad",
+                    ),
+                ),
+                ("seen", models.BooleanField(default=False, verbose_name="Vista")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "related_part",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="inventory.part",
+                    ),
+                ),
+                (
+                    "related_vehicle",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="fleet.vehicle",
+                    ),
+                ),
+                (
+                    "related_work_order",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="workorders.workorder",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Alerta',
-                'verbose_name_plural': 'Alertas',
-                'ordering': ['-created_at'],
+                "verbose_name": "Alerta",
+                "verbose_name_plural": "Alertas",
+                "ordering": ["-created_at"],
             },
         ),
     ]

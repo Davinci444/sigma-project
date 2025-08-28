@@ -2,19 +2,25 @@
 from django.db import models
 from django.conf import settings
 
+
 # --- NUEVO MODELO ---
 class Zone(models.Model):
     name = models.CharField("Nombre de la Zona", max_length=100, unique=True)
 
     def __str__(self):
         return self.name
+
     class Meta:
         verbose_name = "Zona Operativa"
         verbose_name_plural = "Zonas Operativas"
 
+
 class FuelFill(models.Model):
     """Registra cada tanqueo de combustible importado del archivo."""
-    vehicle = models.ForeignKey('fleet.Vehicle', on_delete=models.CASCADE, verbose_name="Vehículo")
+
+    vehicle = models.ForeignKey(
+        "fleet.Vehicle", on_delete=models.CASCADE, verbose_name="Vehículo"
+    )
     fill_date = models.DateTimeField("Fecha del Tanqueo")
     odometer_km = models.PositiveIntegerField("Kilometraje en el Tanqueo")
     gallons = models.DecimalField("Galones", max_digits=7, decimal_places=3)
@@ -23,25 +29,37 @@ class FuelFill(models.Model):
     imported_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Tanqueo de {self.vehicle.plate} el {self.fill_date.strftime('%Y-%m-%d')}"
+        return (
+            f"Tanqueo de {self.vehicle.plate} el {self.fill_date.strftime('%Y-%m-%d')}"
+        )
 
     class Meta:
         verbose_name = "Registro de Tanqueo"
         verbose_name_plural = "Registros de Tanqueo"
-        ordering = ['-fill_date']
+        ordering = ["-fill_date"]
+
 
 class OdometerReading(models.Model):
     """Guarda un histórico de las lecturas de odómetro validadas."""
-    class Source(models.TextChoices):
-        FUEL_FILL = 'FUEL_FILL', 'Tanqueo'
-        MANUAL = 'MANUAL', 'Entrada Manual'
-        TELEMETRY = 'TELEMETRY', 'Telemática'
 
-    vehicle = models.ForeignKey('fleet.Vehicle', on_delete=models.CASCADE, verbose_name="Vehículo")
+    class Source(models.TextChoices):
+        FUEL_FILL = "FUEL_FILL", "Tanqueo"
+        MANUAL = "MANUAL", "Entrada Manual"
+        TELEMETRY = "TELEMETRY", "Telemática"
+
+    vehicle = models.ForeignKey(
+        "fleet.Vehicle", on_delete=models.CASCADE, verbose_name="Vehículo"
+    )
     reading_km = models.PositiveIntegerField("Lectura de Kilometraje")
     reading_date = models.DateTimeField("Fecha de Lectura")
-    source = models.CharField("Fuente de la Lectura", max_length=20, choices=Source.choices)
-    is_anomaly = models.BooleanField("Es Anomalía", default=False, help_text="Marcado si la lectura es inconsistente (ej. menor a la anterior)")
+    source = models.CharField(
+        "Fuente de la Lectura", max_length=20, choices=Source.choices
+    )
+    is_anomaly = models.BooleanField(
+        "Es Anomalía",
+        default=False,
+        help_text="Marcado si la lectura es inconsistente (ej. menor a la anterior)",
+    )
     notes = models.CharField("Notas de la Lectura", max_length=255, blank=True)
 
     def __str__(self):
@@ -50,31 +68,45 @@ class OdometerReading(models.Model):
     class Meta:
         verbose_name = "Histórico de Odómetro"
         verbose_name_plural = "Históricos de Odómetro"
-        ordering = ['-reading_date']
+        ordering = ["-reading_date"]
+
 
 class Alert(models.Model):
     class AlertType(models.TextChoices):
-        DOC_EXPIRATION = 'DOC_EXPIRATION', 'Vencimiento de Documento'
-        LOW_STOCK = 'LOW_STOCK', 'Stock Bajo'
-        PREVENTIVE_DUE = 'PREVENTIVE_DUE', 'Preventivo Pendiente'
-        URGENT_OT = 'URGENT_OT', 'OT Urgente Creada'
-        ODOMETER_INCONSISTENT = 'ODOMETER_INCONSISTENT', 'Odómetro Inconsistente'
-        ODOMETER_UNAVAILABLE = 'ODOMETER_UNAVAILABLE', 'Odómetro No Disponible (Novedad)'
-        MISSING_READING = 'MISSING_READING', 'Lectura de Odómetro Faltante'
+        DOC_EXPIRATION = "DOC_EXPIRATION", "Vencimiento de Documento"
+        LOW_STOCK = "LOW_STOCK", "Stock Bajo"
+        PREVENTIVE_DUE = "PREVENTIVE_DUE", "Preventivo Pendiente"
+        URGENT_OT = "URGENT_OT", "OT Urgente Creada"
+        ODOMETER_INCONSISTENT = "ODOMETER_INCONSISTENT", "Odómetro Inconsistente"
+        ODOMETER_UNAVAILABLE = (
+            "ODOMETER_UNAVAILABLE",
+            "Odómetro No Disponible (Novedad)",
+        )
+        MISSING_READING = "MISSING_READING", "Lectura de Odómetro Faltante"
 
     class Severity(models.TextChoices):
-        INFO = 'INFO', 'Informativa'
-        WARNING = 'WARNING', 'Advertencia'
-        CRITICAL = 'CRITICAL', 'Crítica'
+        INFO = "INFO", "Informativa"
+        WARNING = "WARNING", "Advertencia"
+        CRITICAL = "CRITICAL", "Crítica"
 
-    alert_type = models.CharField("Tipo de Alerta", max_length=30, choices=AlertType.choices)
+    alert_type = models.CharField(
+        "Tipo de Alerta", max_length=30, choices=AlertType.choices
+    )
     message = models.CharField("Mensaje", max_length=255)
-    severity = models.CharField("Severidad", max_length=20, choices=Severity.choices, default=Severity.INFO)
-    
-    related_vehicle = models.ForeignKey('fleet.Vehicle', on_delete=models.CASCADE, null=True, blank=True)
-    related_part = models.ForeignKey('inventory.Part', on_delete=models.CASCADE, null=True, blank=True)
-    related_work_order = models.ForeignKey('workorders.WorkOrder', on_delete=models.CASCADE, null=True, blank=True)
-    
+    severity = models.CharField(
+        "Severidad", max_length=20, choices=Severity.choices, default=Severity.INFO
+    )
+
+    related_vehicle = models.ForeignKey(
+        "fleet.Vehicle", on_delete=models.CASCADE, null=True, blank=True
+    )
+    related_part = models.ForeignKey(
+        "inventory.Part", on_delete=models.CASCADE, null=True, blank=True
+    )
+    related_work_order = models.ForeignKey(
+        "workorders.WorkOrder", on_delete=models.CASCADE, null=True, blank=True
+    )
+
     seen = models.BooleanField("Vista", default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -84,4 +116,4 @@ class Alert(models.Model):
     class Meta:
         verbose_name = "Alerta"
         verbose_name_plural = "Alertas"
-        ordering = ['-created_at']
+        ordering = ["-created_at"]

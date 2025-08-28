@@ -9,40 +9,56 @@ from django.conf import settings
 from .forms import FileUploadForm
 from io import StringIO
 
+
 @user_passes_test(lambda u: u.is_superuser)
 def upload_fuel_file_view(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = FileUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            uploaded_file = request.FILES['file']
-            fs = FileSystemStorage(location=os.path.join(settings.BASE_DIR, 'tmp'))
+            uploaded_file = request.FILES["file"]
+            fs = FileSystemStorage(location=os.path.join(settings.BASE_DIR, "tmp"))
             filename = fs.save(uploaded_file.name, uploaded_file)
             file_path = fs.path(filename)
             try:
                 output = StringIO()
-                call_command('run_daily_jobs', f'--file_path={file_path}', stdout=output)
-                messages.success(request, f"Archivo '{filename}' procesado. Resumen: {output.getvalue()}")
+                call_command(
+                    "run_daily_jobs", f"--file_path={file_path}", stdout=output
+                )
+                messages.success(
+                    request,
+                    f"Archivo '{filename}' procesado. Resumen: {output.getvalue()}",
+                )
             except Exception as e:
                 messages.error(request, f"Ocurrió un error al procesar el archivo: {e}")
             finally:
                 fs.delete(filename)
-            return redirect('admin:index')
+            return redirect("admin:index")
     else:
         form = FileUploadForm()
-    return render(request, 'admin/upload_form.html', {
-        'form': form, 'title': 'Importar Tanqueos desde Excel',
-        'site_header': 'Administración de SIGMA', 'has_permission': True,
-    })
+    return render(
+        request,
+        "admin/upload_form.html",
+        {
+            "form": form,
+            "title": "Importar Tanqueos desde Excel",
+            "site_header": "Administración de SIGMA",
+            "has_permission": True,
+        },
+    )
+
 
 # --- NUEVA VISTA PARA EL BOTÓN DE REVISIONES ---
 @user_passes_test(lambda u: u.is_superuser)
 def run_periodic_checks_view(request):
     try:
         output = StringIO()
-        call_command('run_periodic_checks', stdout=output)
-        messages.success(request, f"Revisiones Periódicas ejecutadas con éxito. Resumen: {output.getvalue()}")
+        call_command("run_periodic_checks", stdout=output)
+        messages.success(
+            request,
+            f"Revisiones Periódicas ejecutadas con éxito. Resumen: {output.getvalue()}",
+        )
     except Exception as e:
         messages.error(request, f"Ocurrió un error al ejecutar las revisiones: {e}")
-    
+
     # Redirigimos de vuelta a la página principal del admin
-    return redirect('admin:index')
+    return redirect("admin:index")

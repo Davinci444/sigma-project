@@ -7,30 +7,96 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Vehicle',
+            name="Vehicle",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('plate', models.CharField(max_length=10, unique=True, verbose_name='Placa')),
-                ('vin', models.CharField(blank=True, max_length=17, null=True, unique=True, verbose_name='VIN')),
-                ('brand', models.CharField(max_length=50, verbose_name='Marca')),
-                ('model', models.CharField(max_length=50, verbose_name='Modelo')),
-                ('year', models.PositiveIntegerField(verbose_name='Año')),
-                ('vehicle_type', models.CharField(help_text='Ej: Camión, Auto, Moto', max_length=50, verbose_name='Tipo de Vehículo')),
-                ('fuel_type', models.CharField(choices=[('GASOLINE', 'Gasolina'), ('DIESEL', 'Diésel'), ('ELECTRIC', 'Eléctrico'), ('HYBRID', 'Híbrido'), ('GAS', 'Gas')], default='DIESEL', max_length=20, verbose_name='Tipo de Combustible')),
-                ('status', models.CharField(choices=[('ACTIVE', 'Activo'), ('IN_REPAIR', 'En Reparación'), ('SOLD', 'Vendido'), ('INACTIVE', 'Inactivo')], default='ACTIVE', max_length=20, verbose_name='Estado')),
-                ('soat_due_date', models.DateField(blank=True, null=True, verbose_name='Vencimiento SOAT')),
-                ('rtm_due_date', models.DateField(blank=True, null=True, verbose_name='Vencimiento RTM')),
-                ('notes', models.TextField(blank=True, verbose_name='Notas Adicionales')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "plate",
+                    models.CharField(max_length=10, unique=True, verbose_name="Placa"),
+                ),
+                (
+                    "vin",
+                    models.CharField(
+                        blank=True,
+                        max_length=17,
+                        null=True,
+                        unique=True,
+                        verbose_name="VIN",
+                    ),
+                ),
+                ("brand", models.CharField(max_length=50, verbose_name="Marca")),
+                ("model", models.CharField(max_length=50, verbose_name="Modelo")),
+                ("year", models.PositiveIntegerField(verbose_name="Año")),
+                (
+                    "vehicle_type",
+                    models.CharField(
+                        help_text="Ej: Camión, Auto, Moto",
+                        max_length=50,
+                        verbose_name="Tipo de Vehículo",
+                    ),
+                ),
+                (
+                    "fuel_type",
+                    models.CharField(
+                        choices=[
+                            ("GASOLINE", "Gasolina"),
+                            ("DIESEL", "Diésel"),
+                            ("ELECTRIC", "Eléctrico"),
+                            ("HYBRID", "Híbrido"),
+                            ("GAS", "Gas"),
+                        ],
+                        default="DIESEL",
+                        max_length=20,
+                        verbose_name="Tipo de Combustible",
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("ACTIVE", "Activo"),
+                            ("IN_REPAIR", "En Reparación"),
+                            ("SOLD", "Vendido"),
+                            ("INACTIVE", "Inactivo"),
+                        ],
+                        default="ACTIVE",
+                        max_length=20,
+                        verbose_name="Estado",
+                    ),
+                ),
+                (
+                    "soat_due_date",
+                    models.DateField(
+                        blank=True, null=True, verbose_name="Vencimiento SOAT"
+                    ),
+                ),
+                (
+                    "rtm_due_date",
+                    models.DateField(
+                        blank=True, null=True, verbose_name="Vencimiento RTM"
+                    ),
+                ),
+                (
+                    "notes",
+                    models.TextField(blank=True, verbose_name="Notas Adicionales"),
+                ),
             ],
             options={
-                'verbose_name': 'Vehículo',
-                'verbose_name_plural': 'Vehículos',
-                'ordering': ['plate'],
+                "verbose_name": "Vehículo",
+                "verbose_name_plural": "Vehículos",
+                "ordering": ["plate"],
             },
         ),
     ]

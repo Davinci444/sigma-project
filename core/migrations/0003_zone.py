@@ -6,19 +6,32 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0002_alter_alert_alert_type_fuelfill_odometerreading'),
+        ("core", "0002_alter_alert_alert_type_fuelfill_odometerreading"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Zone',
+            name="Zone",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, unique=True, verbose_name='Nombre de la Zona')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        max_length=100, unique=True, verbose_name="Nombre de la Zona"
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Zona Operativa',
-                'verbose_name_plural': 'Zonas Operativas',
+                "verbose_name": "Zona Operativa",
+                "verbose_name_plural": "Zonas Operativas",
             },
         ),
     ]

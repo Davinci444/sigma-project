@@ -7,152 +7,267 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('inventory', '0001_initial'),
-        ('workorders', '0001_initial'),
+        ("inventory", "0001_initial"),
+        ("workorders", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='workordertask',
-            options={'verbose_name': 'Trabajo Adicional de OT', 'verbose_name_plural': 'Trabajos Adicionales de OT'},
+            name="workordertask",
+            options={
+                "verbose_name": "Trabajo Adicional de OT",
+                "verbose_name_plural": "Trabajos Adicionales de OT",
+            },
         ),
         migrations.RemoveField(
-            model_name='maintenanceplan',
-            name='last_execution_value',
+            model_name="maintenanceplan",
+            name="last_execution_value",
         ),
         migrations.RemoveField(
-            model_name='maintenanceplan',
-            name='threshold_value',
+            model_name="maintenanceplan",
+            name="threshold_value",
         ),
         migrations.RemoveField(
-            model_name='workorder',
-            name='completed_at',
+            model_name="workorder",
+            name="completed_at",
         ),
         migrations.RemoveField(
-            model_name='workorder',
-            name='labor_cost',
+            model_name="workorder",
+            name="labor_cost",
         ),
         migrations.RemoveField(
-            model_name='workordertask',
-            name='evidence_url',
+            model_name="workordertask",
+            name="evidence_url",
         ),
         migrations.RemoveField(
-            model_name='workordertask',
-            name='title',
+            model_name="workordertask",
+            name="title",
         ),
         migrations.AddField(
-            model_name='maintenanceplan',
-            name='grace_km',
-            field=models.PositiveIntegerField(default=500, help_text='Km extra antes de considerarse vencido', verbose_name='Kilometraje de Gracia'),
+            model_name="maintenanceplan",
+            name="grace_km",
+            field=models.PositiveIntegerField(
+                default=500,
+                help_text="Km extra antes de considerarse vencido",
+                verbose_name="Kilometraje de Gracia",
+            ),
         ),
         migrations.AddField(
-            model_name='maintenanceplan',
-            name='last_service_date',
-            field=models.DateField(blank=True, null=True, verbose_name='Fecha del Último Servicio'),
+            model_name="maintenanceplan",
+            name="last_service_date",
+            field=models.DateField(
+                blank=True, null=True, verbose_name="Fecha del Último Servicio"
+            ),
         ),
         migrations.AddField(
-            model_name='maintenanceplan',
-            name='last_service_km',
-            field=models.PositiveIntegerField(default=0, verbose_name='Km en Último Servicio'),
+            model_name="maintenanceplan",
+            name="last_service_km",
+            field=models.PositiveIntegerField(
+                default=0, verbose_name="Km en Último Servicio"
+            ),
         ),
         migrations.AddField(
-            model_name='maintenanceplan',
-            name='threshold_days',
-            field=models.PositiveIntegerField(default=180, verbose_name='Umbral de Tiempo (días)'),
+            model_name="maintenanceplan",
+            name="threshold_days",
+            field=models.PositiveIntegerField(
+                default=180, verbose_name="Umbral de Tiempo (días)"
+            ),
         ),
         migrations.AddField(
-            model_name='maintenanceplan',
-            name='threshold_km',
-            field=models.PositiveIntegerField(default=5000, verbose_name='Umbral de Kilometraje (km)'),
+            model_name="maintenanceplan",
+            name="threshold_km",
+            field=models.PositiveIntegerField(
+                default=5000, verbose_name="Umbral de Kilometraje (km)"
+            ),
         ),
         migrations.AddField(
-            model_name='workorder',
-            name='check_in_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Fecha y Hora de Ingreso Real'),
+            model_name="workorder",
+            name="check_in_at",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="Fecha y Hora de Ingreso Real"
+            ),
         ),
         migrations.AddField(
-            model_name='workorder',
-            name='check_out_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Fecha y Hora de Salida Real'),
+            model_name="workorder",
+            name="check_out_at",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="Fecha y Hora de Salida Real"
+            ),
         ),
         migrations.AddField(
-            model_name='workorder',
-            name='labor_cost_external',
-            field=models.DecimalField(decimal_places=2, default=0.0, max_digits=10, verbose_name='Costo MO Terceros'),
+            model_name="workorder",
+            name="labor_cost_external",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=0.0,
+                max_digits=10,
+                verbose_name="Costo MO Terceros",
+            ),
         ),
         migrations.AddField(
-            model_name='workorder',
-            name='labor_cost_internal',
-            field=models.DecimalField(decimal_places=2, default=0.0, max_digits=10, verbose_name='Costo MO Interna'),
+            model_name="workorder",
+            name="labor_cost_internal",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=0.0,
+                max_digits=10,
+                verbose_name="Costo MO Interna",
+            ),
         ),
         migrations.AddField(
-            model_name='workorder',
-            name='order_type',
-            field=models.CharField(choices=[('PREVENTIVE', 'Preventivo'), ('CORRECTIVE', 'Correctivo')], default='CORRECTIVE', max_length=20, verbose_name='Tipo de OT'),
+            model_name="workorder",
+            name="order_type",
+            field=models.CharField(
+                choices=[("PREVENTIVE", "Preventivo"), ("CORRECTIVE", "Correctivo")],
+                default="CORRECTIVE",
+                max_length=20,
+                verbose_name="Tipo de OT",
+            ),
         ),
         migrations.AddField(
-            model_name='workorder',
-            name='scheduled_end',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Fin Programado (Estimado)'),
+            model_name="workorder",
+            name="scheduled_end",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="Fin Programado (Estimado)"
+            ),
         ),
         migrations.AddField(
-            model_name='workorder',
-            name='scheduled_start',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Inicio Programado'),
+            model_name="workorder",
+            name="scheduled_start",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="Inicio Programado"
+            ),
         ),
         migrations.AddField(
-            model_name='workordertask',
-            name='description',
-            field=models.CharField(default='', max_length=255, verbose_name='Descripción del Trabajo Adicional'),
+            model_name="workordertask",
+            name="description",
+            field=models.CharField(
+                default="",
+                max_length=255,
+                verbose_name="Descripción del Trabajo Adicional",
+            ),
         ),
         migrations.AddField(
-            model_name='workordertask',
-            name='evidence_urls',
-            field=models.JSONField(blank=True, default=list, verbose_name='URLs de Evidencias'),
+            model_name="workordertask",
+            name="evidence_urls",
+            field=models.JSONField(
+                blank=True, default=list, verbose_name="URLs de Evidencias"
+            ),
         ),
         migrations.AddField(
-            model_name='workordertask',
-            name='is_external',
-            field=models.BooleanField(default=False, verbose_name='Realizado por Tercero'),
+            model_name="workordertask",
+            name="is_external",
+            field=models.BooleanField(
+                default=False, verbose_name="Realizado por Tercero"
+            ),
         ),
         migrations.AddField(
-            model_name='workordertask',
-            name='labor_rate',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True, verbose_name='Tarifa por Hora o Costo Fijo (Tercero)'),
+            model_name="workordertask",
+            name="labor_rate",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=2,
+                max_digits=10,
+                null=True,
+                verbose_name="Tarifa por Hora o Costo Fijo (Tercero)",
+            ),
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='plan_type',
-            field=models.CharField(choices=[('KM_TIME', 'Kilometraje (con respaldo por tiempo)'), ('TIME', 'Solo por Tiempo (días)'), ('HOURS', 'Solo por Horas de Motor')], default='KM_TIME', max_length=10, verbose_name='Tipo de Plan'),
+            model_name="maintenanceplan",
+            name="plan_type",
+            field=models.CharField(
+                choices=[
+                    ("KM_TIME", "Kilometraje (con respaldo por tiempo)"),
+                    ("TIME", "Solo por Tiempo (días)"),
+                    ("HOURS", "Solo por Horas de Motor"),
+                ],
+                default="KM_TIME",
+                max_length=10,
+                verbose_name="Tipo de Plan",
+            ),
         ),
         migrations.AlterField(
-            model_name='workorder',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Creación'),
+            model_name="workorder",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True, verbose_name="Fecha de Creación"
+            ),
         ),
         migrations.AlterField(
-            model_name='workorder',
-            name='description',
-            field=models.TextField(verbose_name='Descripción del Problema/Trabajo Principal'),
+            model_name="workorder",
+            name="description",
+            field=models.TextField(
+                verbose_name="Descripción del Problema/Trabajo Principal"
+            ),
         ),
         migrations.AlterField(
-            model_name='workorder',
-            name='status',
-            field=models.CharField(choices=[('SCHEDULED', 'Programada'), ('IN_RECEPTION', 'En Recepción'), ('IN_SERVICE', 'En Servicio'), ('WAITING_PART', 'En Espera de Repuesto'), ('PENDING_APPROVAL', 'Pendiente de Aprobación'), ('STOPPED_BY_CLIENT', 'Detenida por Cliente'), ('IN_ROAD_TEST', 'En Prueba de Ruta'), ('COMPLETED', 'Completada (Taller)'), ('VERIFIED', 'Verificada (Cerrada)'), ('CANCELLED', 'Cancelada')], default='SCHEDULED', max_length=20, verbose_name='Estado'),
+            model_name="workorder",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("SCHEDULED", "Programada"),
+                    ("IN_RECEPTION", "En Recepción"),
+                    ("IN_SERVICE", "En Servicio"),
+                    ("WAITING_PART", "En Espera de Repuesto"),
+                    ("PENDING_APPROVAL", "Pendiente de Aprobación"),
+                    ("STOPPED_BY_CLIENT", "Detenida por Cliente"),
+                    ("IN_ROAD_TEST", "En Prueba de Ruta"),
+                    ("COMPLETED", "Completada (Taller)"),
+                    ("VERIFIED", "Verificada (Cerrada)"),
+                    ("CANCELLED", "Cancelada"),
+                ],
+                default="SCHEDULED",
+                max_length=20,
+                verbose_name="Estado",
+            ),
         ),
         migrations.CreateModel(
-            name='WorkOrderPart',
+            name="WorkOrderPart",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('quantity', models.PositiveIntegerField(default=1, verbose_name='Cantidad Usada')),
-                ('cost_at_moment', models.DecimalField(decimal_places=2, max_digits=10, verbose_name='Costo al Momento de Uso')),
-                ('part', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='inventory.part', verbose_name='Repuesto')),
-                ('work_order', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='parts_used', to='workorders.workorder')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "quantity",
+                    models.PositiveIntegerField(
+                        default=1, verbose_name="Cantidad Usada"
+                    ),
+                ),
+                (
+                    "cost_at_moment",
+                    models.DecimalField(
+                        decimal_places=2,
+                        max_digits=10,
+                        verbose_name="Costo al Momento de Uso",
+                    ),
+                ),
+                (
+                    "part",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="inventory.part",
+                        verbose_name="Repuesto",
+                    ),
+                ),
+                (
+                    "work_order",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="parts_used",
+                        to="workorders.workorder",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Repuesto Usado en OT',
-                'verbose_name_plural': 'Repuestos Usados en OT',
-                'unique_together': {('work_order', 'part')},
+                "verbose_name": "Repuesto Usado en OT",
+                "verbose_name_plural": "Repuestos Usados en OT",
+                "unique_together": {("work_order", "part")},
             },
         ),
     ]

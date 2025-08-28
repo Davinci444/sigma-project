@@ -7,89 +7,196 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('workorders', '0002_alter_workordertask_options_and_more'),
+        ("workorders", "0002_alter_workordertask_options_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='MaintenanceCategory',
+            name="MaintenanceCategory",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, unique=True, verbose_name='Nombre de la Categoría')),
-                ('description', models.TextField(blank=True, verbose_name='Descripción')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        max_length=100,
+                        unique=True,
+                        verbose_name="Nombre de la Categoría",
+                    ),
+                ),
+                (
+                    "description",
+                    models.TextField(blank=True, verbose_name="Descripción"),
+                ),
             ],
             options={
-                'verbose_name': 'Categoría de Mantenimiento',
-                'verbose_name_plural': 'Categorías de Mantenimiento',
+                "verbose_name": "Categoría de Mantenimiento",
+                "verbose_name_plural": "Categorías de Mantenimiento",
             },
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='grace_km',
-            field=models.PositiveIntegerField(default=500, verbose_name='Kilometraje de Gracia'),
+            model_name="maintenanceplan",
+            name="grace_km",
+            field=models.PositiveIntegerField(
+                default=500, verbose_name="Kilometraje de Gracia"
+            ),
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='is_active',
-            field=models.BooleanField(default=True, help_text="El plan está 'dormido' hasta que se cierra la primera OT Preventiva", verbose_name='Activo'),
+            model_name="maintenanceplan",
+            name="is_active",
+            field=models.BooleanField(
+                default=True,
+                help_text="El plan está 'dormido' hasta que se cierra la primera OT Preventiva",
+                verbose_name="Activo",
+            ),
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='last_service_date',
-            field=models.DateField(blank=True, help_text='Se actualiza automáticamente', null=True, verbose_name='Fecha del Último Servicio'),
+            model_name="maintenanceplan",
+            name="last_service_date",
+            field=models.DateField(
+                blank=True,
+                help_text="Se actualiza automáticamente",
+                null=True,
+                verbose_name="Fecha del Último Servicio",
+            ),
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='last_service_km',
-            field=models.PositiveIntegerField(default=0, help_text='Se actualiza automáticamente al cerrar una OT Preventiva', verbose_name='Km en Último Servicio'),
+            model_name="maintenanceplan",
+            name="last_service_km",
+            field=models.PositiveIntegerField(
+                default=0,
+                help_text="Se actualiza automáticamente al cerrar una OT Preventiva",
+                verbose_name="Km en Último Servicio",
+            ),
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='threshold_km',
-            field=models.PositiveIntegerField(default=10000, verbose_name='Umbral de Kilometraje (km)'),
+            model_name="maintenanceplan",
+            name="threshold_km",
+            field=models.PositiveIntegerField(
+                default=10000, verbose_name="Umbral de Kilometraje (km)"
+            ),
         ),
         migrations.AlterField(
-            model_name='workorder',
-            name='priority',
-            field=models.CharField(choices=[('LOW', 'Low'), ('MEDIUM', 'Medium'), ('HIGH', 'High'), ('URGENT', 'Urgent')], default='MEDIUM', max_length=20, verbose_name='Prioridad'),
+            model_name="workorder",
+            name="priority",
+            field=models.CharField(
+                choices=[
+                    ("LOW", "Low"),
+                    ("MEDIUM", "Medium"),
+                    ("HIGH", "High"),
+                    ("URGENT", "Urgent"),
+                ],
+                default="MEDIUM",
+                max_length=20,
+                verbose_name="Prioridad",
+            ),
         ),
         migrations.AlterField(
-            model_name='workorder',
-            name='status',
-            field=models.CharField(choices=[('SCHEDULED', 'Scheduled'), ('IN_RECEPTION', 'In Reception'), ('IN_SERVICE', 'In Service'), ('WAITING_PART', 'Waiting Part'), ('PENDING_APPROVAL', 'Pending Approval'), ('STOPPED_BY_CLIENT', 'Stopped By Client'), ('IN_ROAD_TEST', 'In Road Test'), ('COMPLETED', 'Completed'), ('VERIFIED', 'Verified'), ('CANCELLED', 'Cancelled')], default='SCHEDULED', max_length=20, verbose_name='Estado'),
+            model_name="workorder",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("SCHEDULED", "Scheduled"),
+                    ("IN_RECEPTION", "In Reception"),
+                    ("IN_SERVICE", "In Service"),
+                    ("WAITING_PART", "Waiting Part"),
+                    ("PENDING_APPROVAL", "Pending Approval"),
+                    ("STOPPED_BY_CLIENT", "Stopped By Client"),
+                    ("IN_ROAD_TEST", "In Road Test"),
+                    ("COMPLETED", "Completed"),
+                    ("VERIFIED", "Verified"),
+                    ("CANCELLED", "Cancelled"),
+                ],
+                default="SCHEDULED",
+                max_length=20,
+                verbose_name="Estado",
+            ),
         ),
         migrations.AlterField(
-            model_name='workordertask',
-            name='description',
-            field=models.CharField(blank=True, max_length=255, verbose_name='Descripción del Trabajo (si no aplica subcategoría)'),
+            model_name="workordertask",
+            name="description",
+            field=models.CharField(
+                blank=True,
+                max_length=255,
+                verbose_name="Descripción del Trabajo (si no aplica subcategoría)",
+            ),
         ),
         migrations.AlterField(
-            model_name='workordertask',
-            name='labor_rate',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True, verbose_name='Tarifa o Costo Fijo (Tercero)'),
+            model_name="workordertask",
+            name="labor_rate",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=2,
+                max_digits=10,
+                null=True,
+                verbose_name="Tarifa o Costo Fijo (Tercero)",
+            ),
         ),
         migrations.AddField(
-            model_name='workordertask',
-            name='category',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='workorders.maintenancecategory', verbose_name='Categoría'),
+            model_name="workordertask",
+            name="category",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="workorders.maintenancecategory",
+                verbose_name="Categoría",
+            ),
         ),
         migrations.CreateModel(
-            name='MaintenanceSubcategory',
+            name="MaintenanceSubcategory",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, verbose_name='Nombre de la Subcategoría')),
-                ('description', models.TextField(blank=True, verbose_name='Descripción')),
-                ('category', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='subcategories', to='workorders.maintenancecategory', verbose_name='Categoría Principal')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        max_length=100, verbose_name="Nombre de la Subcategoría"
+                    ),
+                ),
+                (
+                    "description",
+                    models.TextField(blank=True, verbose_name="Descripción"),
+                ),
+                (
+                    "category",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="subcategories",
+                        to="workorders.maintenancecategory",
+                        verbose_name="Categoría Principal",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Subcategoría de Mantenimiento',
-                'verbose_name_plural': 'Subcategorías de Mantenimiento',
-                'unique_together': {('category', 'name')},
+                "verbose_name": "Subcategoría de Mantenimiento",
+                "verbose_name_plural": "Subcategorías de Mantenimiento",
+                "unique_together": {("category", "name")},
             },
         ),
         migrations.AddField(
-            model_name='workordertask',
-            name='subcategory',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='workorders.maintenancesubcategory', verbose_name='Subcategoría'),
+            model_name="workordertask",
+            name="subcategory",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="workorders.maintenancesubcategory",
+                verbose_name="Subcategoría",
+            ),
         ),
     ]

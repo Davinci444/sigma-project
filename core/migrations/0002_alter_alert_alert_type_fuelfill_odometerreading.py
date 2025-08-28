@@ -7,49 +7,139 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0001_initial'),
-        ('fleet', '0002_vehicle_current_odometer_km_vehicle_odometer_status'),
+        ("core", "0001_initial"),
+        ("fleet", "0002_vehicle_current_odometer_km_vehicle_odometer_status"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='alert',
-            name='alert_type',
-            field=models.CharField(choices=[('DOC_EXPIRATION', 'Vencimiento de Documento'), ('LOW_STOCK', 'Stock Bajo'), ('PREVENTIVE_DUE', 'Preventivo Pendiente'), ('URGENT_OT', 'OT Urgente Creada'), ('ODOMETER_INCONSISTENT', 'Odómetro Inconsistente'), ('ODOMETER_UNAVAILABLE', 'Odómetro No Disponible (Novedad)'), ('MISSING_READING', 'Lectura de Odómetro Faltante')], max_length=30, verbose_name='Tipo de Alerta'),
+            model_name="alert",
+            name="alert_type",
+            field=models.CharField(
+                choices=[
+                    ("DOC_EXPIRATION", "Vencimiento de Documento"),
+                    ("LOW_STOCK", "Stock Bajo"),
+                    ("PREVENTIVE_DUE", "Preventivo Pendiente"),
+                    ("URGENT_OT", "OT Urgente Creada"),
+                    ("ODOMETER_INCONSISTENT", "Odómetro Inconsistente"),
+                    ("ODOMETER_UNAVAILABLE", "Odómetro No Disponible (Novedad)"),
+                    ("MISSING_READING", "Lectura de Odómetro Faltante"),
+                ],
+                max_length=30,
+                verbose_name="Tipo de Alerta",
+            ),
         ),
         migrations.CreateModel(
-            name='FuelFill',
+            name="FuelFill",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('fill_date', models.DateTimeField(verbose_name='Fecha del Tanqueo')),
-                ('odometer_km', models.PositiveIntegerField(verbose_name='Kilometraje en el Tanqueo')),
-                ('gallons', models.DecimalField(decimal_places=3, max_digits=7, verbose_name='Galones')),
-                ('notes', models.CharField(blank=True, max_length=255, verbose_name='Observaciones del Archivo')),
-                ('source_file', models.CharField(blank=True, max_length=100, verbose_name='Archivo de Origen')),
-                ('imported_at', models.DateTimeField(auto_now_add=True)),
-                ('vehicle', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='fleet.vehicle', verbose_name='Vehículo')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("fill_date", models.DateTimeField(verbose_name="Fecha del Tanqueo")),
+                (
+                    "odometer_km",
+                    models.PositiveIntegerField(
+                        verbose_name="Kilometraje en el Tanqueo"
+                    ),
+                ),
+                (
+                    "gallons",
+                    models.DecimalField(
+                        decimal_places=3, max_digits=7, verbose_name="Galones"
+                    ),
+                ),
+                (
+                    "notes",
+                    models.CharField(
+                        blank=True,
+                        max_length=255,
+                        verbose_name="Observaciones del Archivo",
+                    ),
+                ),
+                (
+                    "source_file",
+                    models.CharField(
+                        blank=True, max_length=100, verbose_name="Archivo de Origen"
+                    ),
+                ),
+                ("imported_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "vehicle",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="fleet.vehicle",
+                        verbose_name="Vehículo",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Registro de Tanqueo',
-                'verbose_name_plural': 'Registros de Tanqueo',
-                'ordering': ['-fill_date'],
+                "verbose_name": "Registro de Tanqueo",
+                "verbose_name_plural": "Registros de Tanqueo",
+                "ordering": ["-fill_date"],
             },
         ),
         migrations.CreateModel(
-            name='OdometerReading',
+            name="OdometerReading",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('reading_km', models.PositiveIntegerField(verbose_name='Lectura de Kilometraje')),
-                ('reading_date', models.DateTimeField(verbose_name='Fecha de Lectura')),
-                ('source', models.CharField(choices=[('FUEL_FILL', 'Tanqueo'), ('MANUAL', 'Entrada Manual'), ('TELEMETRY', 'Telemática')], max_length=20, verbose_name='Fuente de la Lectura')),
-                ('is_anomaly', models.BooleanField(default=False, help_text='Marcado si la lectura es inconsistente (ej. menor a la anterior)', verbose_name='Es Anomalía')),
-                ('notes', models.CharField(blank=True, max_length=255, verbose_name='Notas de la Lectura')),
-                ('vehicle', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='fleet.vehicle', verbose_name='Vehículo')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "reading_km",
+                    models.PositiveIntegerField(verbose_name="Lectura de Kilometraje"),
+                ),
+                ("reading_date", models.DateTimeField(verbose_name="Fecha de Lectura")),
+                (
+                    "source",
+                    models.CharField(
+                        choices=[
+                            ("FUEL_FILL", "Tanqueo"),
+                            ("MANUAL", "Entrada Manual"),
+                            ("TELEMETRY", "Telemática"),
+                        ],
+                        max_length=20,
+                        verbose_name="Fuente de la Lectura",
+                    ),
+                ),
+                (
+                    "is_anomaly",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Marcado si la lectura es inconsistente (ej. menor a la anterior)",
+                        verbose_name="Es Anomalía",
+                    ),
+                ),
+                (
+                    "notes",
+                    models.CharField(
+                        blank=True, max_length=255, verbose_name="Notas de la Lectura"
+                    ),
+                ),
+                (
+                    "vehicle",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="fleet.vehicle",
+                        verbose_name="Vehículo",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Histórico de Odómetro',
-                'verbose_name_plural': 'Históricos de Odómetro',
-                'ordering': ['-reading_date'],
+                "verbose_name": "Histórico de Odómetro",
+                "verbose_name_plural": "Históricos de Odómetro",
+                "ordering": ["-reading_date"],
             },
         ),
     ]

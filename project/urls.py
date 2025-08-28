@@ -7,53 +7,61 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 # "Envolvemos" la vista de inicio del admin para añadirle nuestros datos.
 original_index = admin.site.index
 
+
 def custom_index(request, extra_context=None):
     from django.utils import timezone
     from workorders.models import WorkOrder
-    
+
     today = timezone.now()
-    
+
     # Contamos los vehículos que ya ingresaron al taller
-    in_workshop_count = WorkOrder.objects.filter(
-        check_in_at__isnull=False,
-        check_in_at__lte=today
-    ).exclude(
-        status__in=[WorkOrder.OrderStatus.VERIFIED, WorkOrder.OrderStatus.CANCELLED]
-    ).values('vehicle').distinct().count()
+    in_workshop_count = (
+        WorkOrder.objects.filter(check_in_at__isnull=False, check_in_at__lte=today)
+        .exclude(
+            status__in=[WorkOrder.OrderStatus.VERIFIED, WorkOrder.OrderStatus.CANCELLED]
+        )
+        .values("vehicle")
+        .distinct()
+        .count()
+    )
 
     # Contamos los vehículos que tienen una programación a futuro
-    scheduled_count = WorkOrder.objects.filter(
-        status=WorkOrder.OrderStatus.SCHEDULED,
-        scheduled_start__isnull=False,
-        scheduled_start__gt=today
-    ).values('vehicle').distinct().count()
+    scheduled_count = (
+        WorkOrder.objects.filter(
+            status=WorkOrder.OrderStatus.SCHEDULED,
+            scheduled_start__isnull=False,
+            scheduled_start__gt=today,
+        )
+        .values("vehicle")
+        .distinct()
+        .count()
+    )
 
     if extra_context is None:
         extra_context = {}
-    
+
     # Pasamos los contadores a la plantilla
-    extra_context['in_workshop_count'] = in_workshop_count
-    extra_context['scheduled_count'] = scheduled_count
-    
+    extra_context["in_workshop_count"] = in_workshop_count
+    extra_context["scheduled_count"] = scheduled_count
+
     return original_index(request, extra_context)
+
 
 admin.site.index = custom_index
 # --- FIN DE LA NUEVA LÓGICA ---
 
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    
+    path("admin/", admin.site.urls),
     # URLs de nuestras aplicaciones principales
-    path('core/', include('core.urls')),
-    path('reports/', include('reports.urls')),
-
+    path("core/", include("core.urls")),
+    path("reports/", include("reports.urls")),
     # --- RUTAS DE LA API ---
-    path('api/fleet/', include('fleet.urls')),
-    path('api/workorders/', include('workorders.urls')),
-    path('api/inventory/', include('inventory.urls')),
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path("api/fleet/", include("fleet.urls")),
+    path("api/workorders/", include("workorders.urls")),
+    path("api/inventory/", include("inventory.urls")),
+    path("api/auth/login/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 ]
 
 # --- PERSONALIZACIÓN DEL PANEL DE ADMINISTRACIÓN ---

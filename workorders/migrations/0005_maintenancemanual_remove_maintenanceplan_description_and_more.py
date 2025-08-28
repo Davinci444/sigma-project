@@ -7,84 +7,167 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('workorders', '0004_alter_maintenanceplan_is_active_and_more'),
+        ("workorders", "0004_alter_maintenanceplan_is_active_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='MaintenanceManual',
+            name="MaintenanceManual",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(help_text='Ej: Plan Diesel Liviano, Plan Gasolina Avanzado', max_length=150, unique=True, verbose_name='Nombre del Manual')),
-                ('fuel_type', models.CharField(blank=True, choices=[('GASOLINE', 'Gasolina'), ('DIESEL', 'Diésel'), ('ELECTRIC', 'Eléctrico'), ('HYBRID', 'Híbrido'), ('GAS', 'Gas')], max_length=20, null=True, verbose_name='Aplica a Tipo de Combustible')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "name",
+                    models.CharField(
+                        help_text="Ej: Plan Diesel Liviano, Plan Gasolina Avanzado",
+                        max_length=150,
+                        unique=True,
+                        verbose_name="Nombre del Manual",
+                    ),
+                ),
+                (
+                    "fuel_type",
+                    models.CharField(
+                        blank=True,
+                        choices=[
+                            ("GASOLINE", "Gasolina"),
+                            ("DIESEL", "Diésel"),
+                            ("ELECTRIC", "Eléctrico"),
+                            ("HYBRID", "Híbrido"),
+                            ("GAS", "Gas"),
+                        ],
+                        max_length=20,
+                        null=True,
+                        verbose_name="Aplica a Tipo de Combustible",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Manual de Mantenimiento',
-                'verbose_name_plural': 'Manuales de Mantenimiento',
+                "verbose_name": "Manual de Mantenimiento",
+                "verbose_name_plural": "Manuales de Mantenimiento",
             },
         ),
         migrations.RemoveField(
-            model_name='maintenanceplan',
-            name='description',
+            model_name="maintenanceplan",
+            name="description",
         ),
         migrations.RemoveField(
-            model_name='maintenanceplan',
-            name='grace_km',
+            model_name="maintenanceplan",
+            name="grace_km",
         ),
         migrations.RemoveField(
-            model_name='maintenanceplan',
-            name='plan_type',
+            model_name="maintenanceplan",
+            name="plan_type",
         ),
         migrations.RemoveField(
-            model_name='maintenanceplan',
-            name='threshold_days',
+            model_name="maintenanceplan",
+            name="threshold_days",
         ),
         migrations.RemoveField(
-            model_name='maintenanceplan',
-            name='threshold_km',
+            model_name="maintenanceplan",
+            name="threshold_km",
         ),
         migrations.AddField(
-            model_name='workorder',
-            name='odometer_at_service',
-            field=models.PositiveIntegerField(blank=True, help_text='KM del vehículo al momento de esta OT', null=True, verbose_name='Kilometraje al Ingresar'),
+            model_name="workorder",
+            name="odometer_at_service",
+            field=models.PositiveIntegerField(
+                blank=True,
+                help_text="KM del vehículo al momento de esta OT",
+                null=True,
+                verbose_name="Kilometraje al Ingresar",
+            ),
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='is_active',
-            field=models.BooleanField(default=False, help_text='Se activa automáticamente al cerrar la primera OT Preventiva', verbose_name='Activo'),
+            model_name="maintenanceplan",
+            name="is_active",
+            field=models.BooleanField(
+                default=False,
+                help_text="Se activa automáticamente al cerrar la primera OT Preventiva",
+                verbose_name="Activo",
+            ),
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='last_service_date',
-            field=models.DateField(blank=True, help_text='Se actualiza automáticamente', null=True, verbose_name='Fecha del Último Preventivo'),
+            model_name="maintenanceplan",
+            name="last_service_date",
+            field=models.DateField(
+                blank=True,
+                help_text="Se actualiza automáticamente",
+                null=True,
+                verbose_name="Fecha del Último Preventivo",
+            ),
         ),
         migrations.AlterField(
-            model_name='maintenanceplan',
-            name='last_service_km',
-            field=models.PositiveIntegerField(default=0, help_text='Se actualiza al cerrar OT Preventiva', verbose_name='Km del Último Preventivo'),
+            model_name="maintenanceplan",
+            name="last_service_km",
+            field=models.PositiveIntegerField(
+                default=0,
+                help_text="Se actualiza al cerrar OT Preventiva",
+                verbose_name="Km del Último Preventivo",
+            ),
         ),
         migrations.AlterField(
-            model_name='workordertask',
-            name='description',
-            field=models.CharField(blank=True, max_length=255, verbose_name='Descripción del Trabajo'),
+            model_name="workordertask",
+            name="description",
+            field=models.CharField(
+                blank=True, max_length=255, verbose_name="Descripción del Trabajo"
+            ),
         ),
         migrations.AddField(
-            model_name='maintenanceplan',
-            name='manual',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to='workorders.maintenancemanual', verbose_name='Manual Aplicado'),
+            model_name="maintenanceplan",
+            name="manual",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="workorders.maintenancemanual",
+                verbose_name="Manual Aplicado",
+            ),
         ),
         migrations.CreateModel(
-            name='ManualTask',
+            name="ManualTask",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('km_interval', models.PositiveIntegerField(help_text='Ej: 10000, 20000, 40000', verbose_name='Hito de Kilometraje (km)')),
-                ('description', models.CharField(max_length=255, verbose_name='Descripción de la Tarea')),
-                ('manual', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='tasks', to='workorders.maintenancemanual')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "km_interval",
+                    models.PositiveIntegerField(
+                        help_text="Ej: 10000, 20000, 40000",
+                        verbose_name="Hito de Kilometraje (km)",
+                    ),
+                ),
+                (
+                    "description",
+                    models.CharField(
+                        max_length=255, verbose_name="Descripción de la Tarea"
+                    ),
+                ),
+                (
+                    "manual",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="tasks",
+                        to="workorders.maintenancemanual",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Tarea de Manual',
-                'verbose_name_plural': 'Tareas de Manual',
-                'ordering': ['km_interval'],
+                "verbose_name": "Tarea de Manual",
+                "verbose_name_plural": "Tareas de Manual",
+                "ordering": ["km_interval"],
             },
         ),
     ]

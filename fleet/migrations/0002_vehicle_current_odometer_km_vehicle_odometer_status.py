@@ -6,18 +6,30 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('fleet', '0001_initial'),
+        ("fleet", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='vehicle',
-            name='current_odometer_km',
-            field=models.PositiveIntegerField(default=0, help_text='Última lectura válida del odómetro.', verbose_name='Kilometraje Actual (km)'),
+            model_name="vehicle",
+            name="current_odometer_km",
+            field=models.PositiveIntegerField(
+                default=0,
+                help_text="Última lectura válida del odómetro.",
+                verbose_name="Kilometraje Actual (km)",
+            ),
         ),
         migrations.AddField(
-            model_name='vehicle',
-            name='odometer_status',
-            field=models.CharField(choices=[('VALID', 'Válido'), ('INVALID', 'Inválido (Reportado en Novedades)')], default='VALID', max_length=20, verbose_name='Estado del Odómetro'),
+            model_name="vehicle",
+            name="odometer_status",
+            field=models.CharField(
+                choices=[
+                    ("VALID", "Válido"),
+                    ("INVALID", "Inválido (Reportado en Novedades)"),
+                ],
+                default="VALID",
+                max_length=20,
+                verbose_name="Estado del Odómetro",
+            ),
         ),
     ]

@@ -4,6 +4,7 @@ from django.dispatch import receiver
 from .models import Vehicle
 from workorders.models import MaintenancePlan, MaintenanceManual
 
+
 @receiver(post_save, sender=Vehicle)
 def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwargs):
     """
@@ -19,10 +20,12 @@ def assign_maintenance_plan_on_vehicle_creation(sender, instance, created, **kwa
         try:
             # Buscamos un manual que coincida con el tipo de combustible
             manual = MaintenanceManual.objects.get(fuel_type=instance.fuel_type)
-            
+
             # Creamos el plan "dormido", enlazando el vehículo con el manual
             MaintenancePlan.objects.create(vehicle=instance, manual=manual)
-            print(f"Plan de mantenimiento '{manual.name}' asignado automáticamente a {instance.plate}.")
+            print(
+                f"Plan de mantenimiento '{manual.name}' asignado automáticamente a {instance.plate}."
+            )
         except MaintenanceManual.DoesNotExist:
             # No hacemos nada si no hay un manual para ese tipo de combustible
             pass

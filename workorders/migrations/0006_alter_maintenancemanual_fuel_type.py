@@ -6,13 +6,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('workorders', '0005_maintenancemanual_remove_maintenanceplan_description_and_more'),
+        (
+            "workorders",
+            "0005_maintenancemanual_remove_maintenanceplan_description_and_more",
+        ),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='maintenancemanual',
-            name='fuel_type',
-            field=models.CharField(blank=True, choices=[('GASOLINE', 'Gasolina'), ('DIESEL', 'Diésel')], max_length=20, null=True, verbose_name='Aplica a Tipo de Combustible'),
+            model_name="maintenancemanual",
+            name="fuel_type",
+            field=models.CharField(
+                blank=True,
+                choices=[("GASOLINE", "Gasolina"), ("DIESEL", "Diésel")],
+                max_length=20,
+                null=True,
+                verbose_name="Aplica a Tipo de Combustible",
+            ),
         ),
     ]

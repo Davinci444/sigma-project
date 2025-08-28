@@ -7,29 +7,63 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0003_zone'),
-        ('fleet', '0002_vehicle_current_odometer_km_vehicle_odometer_status'),
+        ("core", "0003_zone"),
+        ("fleet", "0002_vehicle_current_odometer_km_vehicle_odometer_status"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='vehicle',
-            name='current_zone',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='core.zone', verbose_name='Zona Operativa Actual'),
+            model_name="vehicle",
+            name="current_zone",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="core.zone",
+                verbose_name="Zona Operativa Actual",
+            ),
         ),
         migrations.CreateModel(
-            name='VehicleZoneHistory',
+            name="VehicleZoneHistory",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('start_date', models.DateField(verbose_name='Fecha de Inicio en Zona')),
-                ('end_date', models.DateField(blank=True, null=True, verbose_name='Fecha de Fin en Zona')),
-                ('vehicle', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='zone_history', to='fleet.vehicle')),
-                ('zone', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='core.zone')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "start_date",
+                    models.DateField(verbose_name="Fecha de Inicio en Zona"),
+                ),
+                (
+                    "end_date",
+                    models.DateField(
+                        blank=True, null=True, verbose_name="Fecha de Fin en Zona"
+                    ),
+                ),
+                (
+                    "vehicle",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="zone_history",
+                        to="fleet.vehicle",
+                    ),
+                ),
+                (
+                    "zone",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT, to="core.zone"
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Historial de Zona del Vehículo',
-                'verbose_name_plural': 'Historiales de Zona de Vehículos',
-                'ordering': ['-start_date'],
+                "verbose_name": "Historial de Zona del Vehículo",
+                "verbose_name_plural": "Historiales de Zona de Vehículos",
+                "ordering": ["-start_date"],
             },
         ),
     ]

@@ -6,33 +6,58 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('inventory', '0001_initial'),
+        ("inventory", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='part',
-            name='unit',
-            field=models.CharField(choices=[('UNIT', 'Unidad'), ('LITER', 'Litro'), ('GALLON', 'Galón'), ('METER', 'Metro'), ('SET', 'Juego/Kit')], default='UNIT', max_length=20, verbose_name='Unidad de Medida'),
+            model_name="part",
+            name="unit",
+            field=models.CharField(
+                choices=[
+                    ("UNIT", "Unidad"),
+                    ("LITER", "Litro"),
+                    ("GALLON", "Galón"),
+                    ("METER", "Metro"),
+                    ("SET", "Juego/Kit"),
+                ],
+                default="UNIT",
+                max_length=20,
+                verbose_name="Unidad de Medida",
+            ),
         ),
         migrations.AlterField(
-            model_name='inventorymovement',
-            name='quantity',
-            field=models.DecimalField(decimal_places=2, max_digits=10, verbose_name='Cantidad'),
+            model_name="inventorymovement",
+            name="quantity",
+            field=models.DecimalField(
+                decimal_places=2, max_digits=10, verbose_name="Cantidad"
+            ),
         ),
         migrations.AlterField(
-            model_name='inventorymovement',
-            name='reason',
-            field=models.CharField(blank=True, max_length=255, verbose_name='Motivo del movimiento'),
+            model_name="inventorymovement",
+            name="reason",
+            field=models.CharField(
+                blank=True, max_length=255, verbose_name="Motivo del movimiento"
+            ),
         ),
         migrations.AlterField(
-            model_name='part',
-            name='stock_current',
-            field=models.DecimalField(decimal_places=2, default=0.0, max_digits=10, verbose_name='Stock Actual'),
+            model_name="part",
+            name="stock_current",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=0.0,
+                max_digits=10,
+                verbose_name="Stock Actual",
+            ),
         ),
         migrations.AlterField(
-            model_name='part',
-            name='stock_min',
-            field=models.DecimalField(decimal_places=2, default=1.0, max_digits=10, verbose_name='Stock Mínimo'),
+            model_name="part",
+            name="stock_min",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=1.0,
+                max_digits=10,
+                verbose_name="Stock Mínimo",
+            ),
         ),
     ]
