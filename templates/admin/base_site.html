@@ -1,0 +1,21 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}SIGMA - Administración{% endblock %}
+
+{% block branding %}
+  <h1 id="site-name"><a href="{% url 'admin:index' %}">SIGMA - PETROCONSULTORES S.A.S.</a></h1>
+
+  <!-- Barra de accesos rápidos visible en todo el Admin -->
+  <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:8px;">
+    <!-- Estos dos usan nombres de URL definidos en core/urls.py -->
+    <a class="button" href="{% url 'upload_fuel_file' %}">Importar Tanqueos (Excel)</a>
+    <a class="button" href="{% url 'seed_taxonomy' %}">Cargar Taxonomía de Mantenimiento</a>
+
+    <!-- Estos van a las vistas HTML que agregamos en fleet/workorders -->
+    <a class="button" href="/api/fleet/garage/">Vehículos en Taller</a>
+    <a class="button" href="/api/workorders/schedule/">Programación por Fecha</a>
+  </div>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
