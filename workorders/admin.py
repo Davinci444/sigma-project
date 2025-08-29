@@ -21,6 +21,8 @@ from .models import (
     ManualTask,
     MaintenancePlan,
     ProbableCause,
+    # NUEVO:
+    WorkOrderTaskEvidence,
 )
 
 # ---------------------------------------------------------------------
@@ -46,7 +48,7 @@ class WorkOrderAdminForm(forms.ModelForm):
 
         # Reglas UX/Negocio (sin tocar DB):
         if ot == WorkOrder.OrderType.CORRECTIVE:
-            # Al menos uno entre pre_diagnosis o probable_causes
+            # Al menos uno entre pre_diagnóstico o probable_causes
             if not (pre_diag or (probable_causes and probable_causes.exists())):
                 raise forms.ValidationError(
                     "Para OT Correctiva debes diligenciar el Pre-diagnóstico o al menos una Causa Probable."
@@ -96,7 +98,40 @@ class WorkOrderNoteInline(admin.TabularInline):
     verbose_name_plural = "Novedades / Comentarios"
 
 
+# >>> Evidencias por Trabajo (inline va en el admin de WorkOrderTask, NO dentro de OT)
+class WorkOrderTaskEvidenceInline(admin.TabularInline):
+    model = WorkOrderTaskEvidence
+    extra = 1
+    fields = ("file", "description", "preview", "uploaded_at")
+    readonly_fields = ("preview", "uploaded_at")
+
+    def preview(self, obj):
+        if not obj.pk or not obj.file:
+            return "—"
+        name = (obj.file.name or "").lower()
+        if name.endswith((".jpg", ".jpeg", ".png", ".gif")):
+            return format_html(
+                '<img src="{}" style="max-height:80px; border:1px solid #ccc;" />',
+                obj.file.url
+            )
+        if name.endswith((".mp4", ".mov", ".avi", ".webm")):
+            return format_html(
+                '<video src="{}" style="max-height:100px;" controls></video>',
+                obj.file.url
+            )
+        return format_html('<a href="{}" target="_blank">Descargar archivo</a>', obj.file.url)
+
+    preview.short_description = "Vista previa"
+
+
 class WorkOrderTaskInline(admin.TabularInline):
+    """
+    Importante: Django no permite inlines anidados.
+    Así que aquí NO podemos meter evidencias.
+
+    Solución: show_change_link=True para abrir el cambio del Trabajo,
+    donde sí tendremos el inline de evidencias.
+    """
     model = WorkOrderTask
     extra = 0
     autocomplete_fields = ("category", "subcategory")
@@ -107,9 +142,21 @@ class WorkOrderTaskInline(admin.TabularInline):
         "hours_spent",
         "is_external",
         "labor_rate",
+        "ver_evidencias",   # columna de enlace rápido
     )
+    readonly_fields = ("ver_evidencias",)
+    show_change_link = True
     verbose_name = "Trabajo"
     verbose_name_plural = "Trabajos"
+
+    def ver_evidencias(self, obj):
+        if not obj.pk:
+            return "—"
+        return format_html(
+            '<a class="button" href="/admin/workorders/workordertask/{}/change/" target="_blank">➜ evidencias</a>',
+            obj.pk,
+        )
+    ver_evidencias.short_description = "Evidencias"
 
 
 class WorkOrderPartInline(admin.TabularInline):
@@ -257,7 +304,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
         WorkOrderDriverInline,
         WorkOrderAttachmentInline,
         WorkOrderNoteInline,
-        WorkOrderTaskInline,
+        WorkOrderTaskInline,   # aquí NO hay evidencias (las verás al abrir el trabajo)
         WorkOrderPartInline,
     ]
 
@@ -366,10 +413,28 @@ class WorkOrderAdmin(admin.ModelAdmin):
     # ----------------------------
     class Media:
         js = ("workorders/admin_workorder.js",)
-        # Si en el futuro quieres estilos:
-        # css = {"all": ("workorders/admin_workorder.css",)}
-        # (no incluimos CSS por ahora para mantenerlo minimal)
-        
+
+
+# ---------------------------------------------------------------------
+# Admin de TRABAJOS con Evidencias (aquí sí verás y subirás archivos)
+# ---------------------------------------------------------------------
+
+@admin.register(WorkOrderTask)
+class WorkOrderTaskAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "work_order", "category", "subcategory", "hours_spent", "is_external", "evidencias_btn")
+    search_fields = ("description", "work_order__id", "work_order__vehicle__plate")
+    list_filter = ("is_external", "category", "subcategory")
+    autocomplete_fields = ("work_order", "category", "subcategory")
+    inlines = [WorkOrderTaskEvidenceInline]
+
+    def evidencias_btn(self, obj):
+        # Botón redundante para descargar/ver desde lista de trabajos
+        return format_html(
+            '<a class="button" href="/admin/workorders/workordertaskevidence/?task__id__exact={}">Ver evidencias</a>',
+            obj.pk
+        )
+    evidencias_btn.short_description = "Evidencias"
+
 
 # ---------------------------------------------------------------------
 # Otros modelos del módulo (registro simple para mantener utilidades)
@@ -415,3 +480,23 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
 class ProbableCauseAdmin(admin.ModelAdmin):
     search_fields = ("name", "description")
     list_display = ("name",)
+
+
+@admin.register(WorkOrderTaskEvidence)
+class WorkOrderTaskEvidenceAdmin(admin.ModelAdmin):
+    list_display = ("task", "file", "uploaded_at", "mini")
+    list_select_related = ("task", "task__work_order")
+    search_fields = ("task__description", "task__work_order__vehicle__plate")
+    date_hierarchy = "uploaded_at"
+    autocomplete_fields = ("task",)
+
+    def mini(self, obj):
+        if not obj.file:
+            return "—"
+        name = (obj.file.name or "").lower()
+        if name.endswith((".jpg", ".jpeg", ".png", ".gif")):
+            return format_html('<img src="{}" style="max-height:50px;border:1px solid #ccc;" />', obj.file.url)
+        if name.endswith((".mp4", ".mov", ".avi", ".webm")):
+            return "🎬"
+        return "📎"
+    mini.short_description = "Preview"
