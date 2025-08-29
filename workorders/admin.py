@@ -53,7 +53,7 @@ class WorkOrderPartInline(admin.TabularInline):
 
 
 # ==========================
-# Inlines Correctivo (nuevo)
+# Inlines Correctivo (definidos pero NO en la lista base)
 # ==========================
 
 class WorkOrderCorrectiveInline(admin.StackedInline):
@@ -132,7 +132,7 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
     list_display = ("id", "vehicle", "manual", "is_active", "last_service_km", "last_service_date")
     list_filter = ("is_active", "manual")
     search_fields = ("vehicle__plate", "manual__name")
-    # Usar raw_id_fields para evitar dependencias de autocomplete en admins externos
+    # Evitar dependencias de autocomplete en admins externos
     raw_id_fields = ("vehicle", "manual")
     list_select_related = ("vehicle", "manual")
     date_hierarchy = "last_service_date"
@@ -146,9 +146,9 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
 class WorkOrderAdmin(admin.ModelAdmin):
     """
     Admin de OT con:
-    - Inlines de tareas, repuestos
-    - Inlines de correctivo (pre-diagnóstico y conductores) SOLO en edición y si la OT es CORRECTIVE
-    - Advertencia de preventivo vencido al abrir OT preventiva
+    - Inlines de tareas y repuestos SIEMPRE.
+    - Inlines de correctivo (pre-diagnóstico y conductores) SOLO en edición y si la OT es CORRECTIVE.
+    - Advertencia de preventivo vencido al abrir OT preventiva.
     """
     list_display = (
         "id", "order_type", "status", "vehicle", "priority",
@@ -156,13 +156,13 @@ class WorkOrderAdmin(admin.ModelAdmin):
     )
     list_filter = ("order_type", "status", "priority")
     search_fields = ("id", "vehicle__plate", "vehicle__brand", "vehicle__model")
-    # 🔧 Quitar autocomplete para evitar 500 en "Agregar OT"
+    # Usar raw_id para vehicle: más robusto en "Add"
     raw_id_fields = ("vehicle",)
     date_hierarchy = "scheduled_start"
     list_select_related = ("vehicle",)
 
-    # Definimos todos, pero los filtramos dinámicamente en get_inline_instances
-    inlines = [WorkOrderTaskInline, WorkOrderPartInline, WorkOrderCorrectiveInline, WorkOrderDriverAssignmentInline]
+    # SOLO los inlines base aquí. Los de correctivo se agregan dinámicamente en edición.
+    inlines = [WorkOrderTaskInline, WorkOrderPartInline]
 
     fieldsets = (
         ("Información básica", {
@@ -182,21 +182,18 @@ class WorkOrderAdmin(admin.ModelAdmin):
 
     def get_inline_instances(self, request, obj=None):
         """
-        - En CREACIÓN (obj is None): mostrar SOLO tareas y repuestos.
-        - En EDICIÓN: si la OT es CORRECTIVE, mostrar además correctivo y conductores.
+        - En CREACIÓN (obj is None): mostrar SOLO tareas y repuestos (los base).
+        - En EDICIÓN: si la OT es CORRECTIVE, añadir además los inlines de correctivo.
         """
         instances = super().get_inline_instances(request, obj)
-        filtered = []
-        for inst in instances:
-            is_corrective_inline = isinstance(inst, (WorkOrderCorrectiveInline, WorkOrderDriverAssignmentInline))
-            if obj is None:
-                if is_corrective_inline:
-                    continue
-            else:
-                if is_corrective_inline and obj.order_type != WorkOrder.OrderType.CORRECTIVE:
-                    continue
-            filtered.append(inst)
-        return filtered
+
+        # Solo agregamos correctivo si ES edición y la OT es de tipo correctivo
+        if obj is not None and obj.order_type == WorkOrder.OrderType.CORRECTIVE:
+            # Instanciamos manualmente los inlines de correctivo
+            instances.append(WorkOrderCorrectiveInline(self.model, self.admin_site))
+            instances.append(WorkOrderDriverAssignmentInline(self.model, self.admin_site))
+
+        return instances
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         """
