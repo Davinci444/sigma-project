@@ -1,4 +1,3 @@
-# workorders/proxies.py
 from .models import WorkOrder
 
 class PreventiveOrder(WorkOrder):
