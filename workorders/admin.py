@@ -55,12 +55,12 @@ class WorkOrderAdminForm(forms.ModelForm):
 
 
 # -----------------------------
-# INLINES
+# INLINES (uso de raw_id_fields para máxima compatibilidad)
 # -----------------------------
 class WorkOrderDriverInline(admin.TabularInline):
     model = WorkOrderDriver
     extra = 0
-    autocomplete_fields = ("driver",)
+    raw_id_fields = ("driver",)
     fields = ("driver", "responsibility_percent")
     verbose_name = "Conductor responsable"
     verbose_name_plural = "Conductores responsables"
@@ -80,7 +80,7 @@ class WorkOrderNoteInline(admin.TabularInline):
     extra = 0
     fields = ("visibility", "text", "author", "created_at")
     readonly_fields = ("created_at",)
-    autocomplete_fields = ("author",)
+    raw_id_fields = ("author",)
     verbose_name = "Novedad / Comentario"
     verbose_name_plural = "Novedades / Comentarios"
 
@@ -88,7 +88,8 @@ class WorkOrderNoteInline(admin.TabularInline):
 class WorkOrderTaskInline(admin.TabularInline):
     model = WorkOrderTask
     extra = 0
-    autocomplete_fields = ("category", "subcategory")
+    # Para máxima estabilidad en todos los entornos:
+    raw_id_fields = ("category", "subcategory")
     fields = ("category", "subcategory", "description", "hours_spent", "is_external", "labor_rate")
     verbose_name = "Trabajo"
     verbose_name_plural = "Trabajos"
@@ -97,7 +98,7 @@ class WorkOrderTaskInline(admin.TabularInline):
 class WorkOrderPartInline(admin.TabularInline):
     model = WorkOrderPart
     extra = 0
-    autocomplete_fields = ("part",)
+    raw_id_fields = ("part",)
     fields = ("part", "quantity", "cost_at_moment")
     verbose_name = "Repuesto usado"
     verbose_name_plural = "Repuestos usados"
@@ -114,25 +115,24 @@ class InWorkshopFilter(admin.SimpleListFilter):
         return (("yes", "Sí"), ("no", "No"))
 
     def queryset(self, request, queryset):
+        from django.db.models import Q
         if self.value() == "yes":
             return queryset.filter(
-                check_in_at__isnull=False
-            ).exclude(
-                status__in=[
+                Q(check_in_at__isnull=False)
+                & ~Q(status__in=[
                     WorkOrder.OrderStatus.VERIFIED,
                     WorkOrder.OrderStatus.CANCELLED,
                     WorkOrder.OrderStatus.COMPLETED,
-                ]
+                ])
             )
         if self.value() == "no":
             return queryset.filter(
-                check_in_at__isnull=True
-            ) | queryset.filter(
-                status__in=[
+                Q(check_in_at__isnull=True)
+                | Q(status__in=[
                     WorkOrder.OrderStatus.VERIFIED,
                     WorkOrder.OrderStatus.CANCELLED,
                     WorkOrder.OrderStatus.COMPLETED,
-                ]
+                ])
             )
         return queryset
 
@@ -204,7 +204,8 @@ class WorkOrderAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
 
     readonly_fields = ("created_at",)
-    autocomplete_fields = ("vehicle", "assigned_technician")
+    # Reemplaza autocomplete por raw_id para evitar dependencias con otros admins
+    raw_id_fields = ("vehicle", "assigned_technician")
     save_on_top = True
 
     inlines = [
@@ -303,7 +304,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
         return ()
 
     class Media:
-        # Este JS solo oculta/mostrar secciones; si no existe, la página carga igual.
         js = ("workorders/admin_workorder.js",)
 
 
@@ -318,8 +318,9 @@ class MaintenanceCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(MaintenanceSubcategory)
 class MaintenanceSubcategoryAdmin(admin.ModelAdmin):
-    autocomplete_fields = ("category",)
-    search_fields = ("name", "category__name")
+    # si quisieras volver a autocomplete en el futuro:
+    # search_fields = ("name", "category__name")
+    raw_id_fields = ("category",)
     list_display = ("name", "category")
 
 
@@ -332,7 +333,7 @@ class MaintenanceManualAdmin(admin.ModelAdmin):
 
 @admin.register(ManualTask)
 class ManualTaskAdmin(admin.ModelAdmin):
-    autocomplete_fields = ("manual",)
+    raw_id_fields = ("manual",)
     list_display = ("manual", "km_interval", "description")
     list_filter = ("manual",)
     search_fields = ("description",)
@@ -340,7 +341,7 @@ class ManualTaskAdmin(admin.ModelAdmin):
 
 @admin.register(MaintenancePlan)
 class MaintenancePlanAdmin(admin.ModelAdmin):
-    autocomplete_fields = ("vehicle", "manual")
+    raw_id_fields = ("vehicle", "manual")
     list_display = ("vehicle", "manual", "is_active", "last_service_km", "last_service_date")
     list_filter = ("is_active", "manual__fuel_type")
     search_fields = ("vehicle__plate",)
