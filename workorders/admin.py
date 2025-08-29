@@ -1,9 +1,8 @@
-"""Admin de Órdenes de Trabajo: UX diferenciada por tipo, inlines y lista potente."""
+"""Admin de Órdenes de Trabajo: UX diferenciada por tipo, inlines y lista robusta."""
 
-from django.contrib import admin, messages
-from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
+from django.contrib import admin
 from django import forms
+from django.utils.html import format_html
 from django.http import HttpResponse
 import csv
 from datetime import datetime
@@ -23,10 +22,9 @@ from .models import (
     ProbableCause,
 )
 
-# ---------------------------------------------------------------------
-# FORM de Admin (validación sin tocar modelos)
-# ---------------------------------------------------------------------
-
+# -----------------------------
+# FORM de validación ligera
+# -----------------------------
 class WorkOrderAdminForm(forms.ModelForm):
     class Meta:
         model = WorkOrder
@@ -35,24 +33,16 @@ class WorkOrderAdminForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         ot = cleaned.get("order_type")
-        # Campos correctivo
         pre_diag = cleaned.get("pre_diagnosis")
-        failure_origin = cleaned.get("failure_origin")
-        severity = cleaned.get("severity")
-        requires_approval = cleaned.get("requires_approval")
-        out_of_service = cleaned.get("out_of_service")
-        warranty_covered = cleaned.get("warranty_covered")
         probable_causes = cleaned.get("probable_causes")
 
-        # Reglas UX/Negocio (sin tocar DB):
         if ot == WorkOrder.OrderType.CORRECTIVE:
-            # Al menos uno entre pre_diagnosis o probable_causes
             if not (pre_diag or (probable_causes and probable_causes.exists())):
                 raise forms.ValidationError(
                     "Para OT Correctiva debes diligenciar el Pre-diagnóstico o al menos una Causa Probable."
                 )
         else:
-            # Preventivo: limpiar campos correctivos si venían en POST (por seguridad)
+            # Limpiar campos correctivos si por error vinieron en el POST
             cleaned["pre_diagnosis"] = ""
             cleaned["failure_origin"] = None
             cleaned["severity"] = None
@@ -64,14 +54,13 @@ class WorkOrderAdminForm(forms.ModelForm):
         return cleaned
 
 
-# ---------------------------------------------------------------------
+# -----------------------------
 # INLINES
-# ---------------------------------------------------------------------
-
+# -----------------------------
 class WorkOrderDriverInline(admin.TabularInline):
     model = WorkOrderDriver
     extra = 0
-    autocomplete_fields = ["driver"]
+    autocomplete_fields = ("driver",)
     fields = ("driver", "responsibility_percent")
     verbose_name = "Conductor responsable"
     verbose_name_plural = "Conductores responsables"
@@ -100,14 +89,7 @@ class WorkOrderTaskInline(admin.TabularInline):
     model = WorkOrderTask
     extra = 0
     autocomplete_fields = ("category", "subcategory")
-    fields = (
-        "category",
-        "subcategory",
-        "description",
-        "hours_spent",
-        "is_external",
-        "labor_rate",
-    )
+    fields = ("category", "subcategory", "description", "hours_spent", "is_external", "labor_rate")
     verbose_name = "Trabajo"
     verbose_name_plural = "Trabajos"
 
@@ -121,10 +103,9 @@ class WorkOrderPartInline(admin.TabularInline):
     verbose_name_plural = "Repuestos usados"
 
 
-# ---------------------------------------------------------------------
-# FILTRO personalizado
-# ---------------------------------------------------------------------
-
+# -----------------------------
+# Filtro “¿En taller?”
+# -----------------------------
 class InWorkshopFilter(admin.SimpleListFilter):
     title = "¿En taller?"
     parameter_name = "in_workshop"
@@ -133,55 +114,49 @@ class InWorkshopFilter(admin.SimpleListFilter):
         return (("yes", "Sí"), ("no", "No"))
 
     def queryset(self, request, queryset):
-        from django.db.models import Q
         if self.value() == "yes":
             return queryset.filter(
-                Q(check_in_at__isnull=False)
-                & ~Q(status__in=[
+                check_in_at__isnull=False
+            ).exclude(
+                status__in=[
                     WorkOrder.OrderStatus.VERIFIED,
                     WorkOrder.OrderStatus.CANCELLED,
                     WorkOrder.OrderStatus.COMPLETED,
-                ])
+                ]
             )
         if self.value() == "no":
             return queryset.filter(
-                Q(check_in_at__isnull=True)
-                | Q(status__in=[
+                check_in_at__isnull=True
+            ) | queryset.filter(
+                status__in=[
                     WorkOrder.OrderStatus.VERIFIED,
                     WorkOrder.OrderStatus.CANCELLED,
                     WorkOrder.OrderStatus.COMPLETED,
-                ])
+                ]
             )
         return queryset
 
 
-# ---------------------------------------------------------------------
-# ACCIONES (sin migraciones): Exportar CSV rápido
-# ---------------------------------------------------------------------
-
+# -----------------------------
+# Acción exportar CSV
+# -----------------------------
 def exportar_ot_csv(modeladmin, request, queryset):
-    """
-    Exporta un CSV con campos clave para análisis rápido.
-    """
     filename = f"ordenes_trabajo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     resp = HttpResponse(content_type="text/csv; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
-    writer = csv.writer(resp)
-
-    writer.writerow([
+    w = csv.writer(resp)
+    w.writerow([
         "ID", "Placa", "Tipo", "Estado", "Prioridad", "Severidad",
         "Gestor", "Programado_Inicio", "Programado_Fin",
-        "Ingreso", "Salida", "KM_Atencion", "Costo_MO_Int", "Costo_MO_Ext",
-        "Costo_Repuestos", "Fecha_Creacion"
+        "Ingreso", "Salida", "KM_Atencion",
+        "Costo_MO_Int", "Costo_MO_Ext", "Costo_Repuestos", "Fecha_Creacion"
     ])
-
     for obj in queryset.select_related("vehicle", "assigned_technician"):
         gestor = ""
         if obj.assigned_technician:
             full = getattr(obj.assigned_technician, "get_full_name", lambda: "")() or ""
             gestor = full or getattr(obj.assigned_technician, "username", "") or str(obj.assigned_technician)
-
-        writer.writerow([
+        w.writerow([
             obj.pk,
             getattr(obj.vehicle, "plate", ""),
             obj.get_order_type_display(),
@@ -199,46 +174,27 @@ def exportar_ot_csv(modeladmin, request, queryset):
             obj.parts_cost,
             obj.created_at,
         ])
-
     return resp
 exportar_ot_csv.short_description = "Exportar selección a CSV"
 
 
-# ---------------------------------------------------------------------
-# ADMIN PRINCIPAL
-# ---------------------------------------------------------------------
-
+# -----------------------------
+# ADMIN principal
+# -----------------------------
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    """
-    - Formulario: se muestran/ocultan secciones según 'order_type' (JS).
-    - Inlines: notas, adjuntos, conductores, trabajos y repuestos.
-    - Lista: columnas clave y filtros útiles.
-    - Acción: exportar CSV.
-    """
     form = WorkOrderAdminForm
     actions = [exportar_ot_csv]
 
     # Lista
     list_display = (
-        "id",
-        "vehicle_plate",
-        "order_type",
-        "status_badge",
-        "priority",
-        "severity",
-        "assigned_technician_name",
-        "created_at",
+        "id", "vehicle_plate", "order_type", "status_badge",
+        "priority", "severity", "assigned_technician_name", "created_at",
     )
     list_select_related = ("vehicle", "assigned_technician")
     list_filter = (
-        "order_type",
-        "status",
-        "priority",
-        "severity",
-        "failure_origin",
-        "out_of_service",
-        "warranty_covered",
+        "order_type", "status", "priority", "severity",
+        "failure_origin", "out_of_service", "warranty_covered",
         InWorkshopFilter,
         ("vehicle", admin.RelatedOnlyFieldListFilter),
         ("assigned_technician", admin.RelatedOnlyFieldListFilter),
@@ -247,12 +203,10 @@ class WorkOrderAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
 
-    # Campos base
     readonly_fields = ("created_at",)
     autocomplete_fields = ("vehicle", "assigned_technician")
     save_on_top = True
 
-    # Inlines
     inlines = [
         WorkOrderDriverInline,
         WorkOrderAttachmentInline,
@@ -261,10 +215,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
         WorkOrderPartInline,
     ]
 
-    # ----------------------------
     # Helpers de columnas
-    # ----------------------------
-
     def vehicle_plate(self, obj):
         return getattr(obj.vehicle, "plate", "—")
     vehicle_plate.short_description = "Placa"
@@ -292,22 +243,16 @@ class WorkOrderAdmin(admin.ModelAdmin):
         }.get(obj.status, "#999")
         return format_html(
             '<span style="padding:2px 8px;border-radius:10px;background:{};color:#fff;font-size:12px;">{}</span>',
-            color,
-            obj.get_status_display(),
+            color, obj.get_status_display(),
         )
     status_badge.short_description = "Estado"
 
-    # ----------------------------
-    # Fieldsets dinámicos (añadimos clases para el JS)
-    # ----------------------------
-
+    # Fieldsets dinámicos
     BASE_FIELDS = (
         ("Información básica", {
             "classes": ("sigma-base",),
             "fields": (
-                "order_type",
-                "vehicle",
-                "description",
+                "order_type", "vehicle", "description",
                 ("priority", "status"),
                 ("assigned_technician", "created_at"),
                 ("scheduled_start", "scheduled_end"),
@@ -316,7 +261,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
             )
         }),
     )
-
     PREVENTIVE_EXTRA = (
         ("Plan preventivo (referencia)", {
             "classes": ("collapse", "sigma-preventive-only"),
@@ -324,7 +268,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
             "fields": ()
         }),
     )
-
     CORRECTIVE_EXTRA = (
         ("Diagnóstico", {
             "classes": ("sigma-corrective-only",),
@@ -351,30 +294,22 @@ class WorkOrderAdmin(admin.ModelAdmin):
             return self.BASE_FIELDS + self.PREVENTIVE_EXTRA
         return self.BASE_FIELDS + self.CORRECTIVE_EXTRA
 
-    def get_readonly_fields(self, request, obj=None):
-        return ("created_at",)
-
     def get_exclude(self, request, obj=None):
         ot = self._order_type_from_request(request, obj)
         if ot == WorkOrder.OrderType.PREVENTIVE:
-            return ("pre_diagnosis", "failure_origin", "severity", "out_of_service",
-                    "requires_approval", "warranty_covered", "probable_causes")
+            return ("pre_diagnosis", "failure_origin", "severity",
+                    "out_of_service", "requires_approval", "warranty_covered",
+                    "probable_causes")
         return ()
 
-    # ----------------------------
-    # Cargar JS/CSS propios (solo admin de WorkOrder)
-    # ----------------------------
     class Media:
+        # Este JS solo oculta/mostrar secciones; si no existe, la página carga igual.
         js = ("workorders/admin_workorder.js",)
-        # Si en el futuro quieres estilos:
-        # css = {"all": ("workorders/admin_workorder.css",)}
-        # (no incluimos CSS por ahora para mantenerlo minimal)
-        
 
-# ---------------------------------------------------------------------
-# Otros modelos del módulo (registro simple para mantener utilidades)
-# ---------------------------------------------------------------------
 
+# -----------------------------
+# Resto de modelos
+# -----------------------------
 @admin.register(MaintenanceCategory)
 class MaintenanceCategoryAdmin(admin.ModelAdmin):
     search_fields = ("name",)

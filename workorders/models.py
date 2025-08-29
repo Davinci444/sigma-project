@@ -1,7 +1,7 @@
 """Models for managing maintenance plans and work orders."""
 
 from django.db import models
-from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField, Q
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
@@ -11,12 +11,11 @@ from fleet.models import Vehicle
 from inventory.models import Part
 
 
-# ---------------------------------------------------------------------
-# Catálogos / Planes
-# ---------------------------------------------------------------------
-
+# -----------------------------
+# Manual / Plan Preventivo
+# -----------------------------
 class MaintenanceManual(models.Model):
-    """Maintenance manual defining tasks for a fuel type."""
+    """Manual de mantenimiento por tipo de combustible."""
 
     name = models.CharField(
         "Nombre del Manual",
@@ -41,7 +40,7 @@ class MaintenanceManual(models.Model):
 
 
 class ManualTask(models.Model):
-    """Task defined within a maintenance manual."""
+    """Tarea definida dentro de un manual."""
 
     manual = models.ForeignKey(
         MaintenanceManual, on_delete=models.CASCADE, related_name="tasks"
@@ -61,7 +60,7 @@ class ManualTask(models.Model):
 
 
 class MaintenancePlan(models.Model):
-    """Associates a vehicle with a maintenance manual."""
+    """Asocia un vehículo con un manual de mantenimiento."""
 
     vehicle = models.ForeignKey(
         Vehicle, on_delete=models.CASCADE, related_name="plans", verbose_name="Vehículo"
@@ -99,9 +98,10 @@ class MaintenancePlan(models.Model):
         verbose_name_plural = "Planes de Mantenimiento"
 
 
+# -----------------------------
+# Taxonomía de Mantenimiento
+# -----------------------------
 class MaintenanceCategory(models.Model):
-    """High-level maintenance category."""
-
     name = models.CharField("Nombre de la Categoría", max_length=100, unique=True)
     description = models.TextField("Descripción", blank=True)
 
@@ -114,8 +114,6 @@ class MaintenanceCategory(models.Model):
 
 
 class MaintenanceSubcategory(models.Model):
-    """Detailed maintenance subcategory."""
-
     category = models.ForeignKey(
         MaintenanceCategory,
         on_delete=models.CASCADE,
@@ -134,30 +132,27 @@ class MaintenanceSubcategory(models.Model):
         unique_together = ("category", "name")
 
 
-# ---------------------------------------------------------------------
-# Correctivas F1: taxonomía de causas y estructuras de trazabilidad
-# ---------------------------------------------------------------------
-
+# -----------------------------
+# Causas probables (correctivo)
+# -----------------------------
 class ProbableCause(models.Model):
-    """Catálogo de causas probables para correctivas."""
     name = models.CharField("Nombre", max_length=120, unique=True)
     description = models.TextField("Descripción", blank=True)
+
+    def __str__(self) -> str:
+        return self.name
 
     class Meta:
         verbose_name = "Causa Probable"
         verbose_name_plural = "Causas Probables"
         ordering = ["name"]
 
-    def __str__(self):
-        return self.name
 
-
-# ---------------------------------------------------------------------
-# Órdenes de Trabajo
-# ---------------------------------------------------------------------
-
+# -----------------------------
+# OT
+# -----------------------------
 class WorkOrder(models.Model):
-    """Represents a maintenance or repair work order."""
+    """Orden de trabajo (preventivo o correctivo)."""
 
     class OrderType(models.TextChoices):
         PREVENTIVE = "PREVENTIVE", "Preventivo"
@@ -181,12 +176,6 @@ class WorkOrder(models.Model):
         HIGH = "HIGH", "Alta"
         URGENT = "URGENT", "Urgente"
 
-    class Severity(models.TextChoices):
-        MINOR = "MINOR", "Leve"
-        MODERATE = "MODERATE", "Moderada"
-        HIGH = "HIGH", "Alta"
-        CRITICAL = "CRITICAL", "Crítica"
-
     class FailureOrigin(models.TextChoices):
         MISUSE = "MISUSE", "Mal uso / Operación"
         WEAR = "WEAR", "Desgaste normal"
@@ -194,6 +183,12 @@ class WorkOrder(models.Model):
         MANUFACTURING = "MANUFACTURING", "Falla de fabricación"
         MAINTENANCE = "MAINTENANCE", "Mantenimiento previo deficiente"
         OTHER = "OTHER", "Otro"
+
+    class Severity(models.TextChoices):
+        MINOR = "MINOR", "Leve"
+        MODERATE = "MODERATE", "Moderada"
+        HIGH = "HIGH", "Alta"
+        CRITICAL = "CRITICAL", "Crítica"
 
     order_type = models.CharField(
         "Tipo de OT", max_length=20, choices=OrderType.choices, default=OrderType.CORRECTIVE
@@ -216,67 +211,65 @@ class WorkOrder(models.Model):
         verbose_name="Técnico Asignado",
     )
 
-    # Conductores responsables (M2M con users.Driver)
+    # Conductores responsables (M2M con through)
     drivers = models.ManyToManyField(
         "users.Driver",
         verbose_name="Conductores responsables",
         blank=True,
         related_name="work_orders",
-        through="WorkOrderDriver",  # para poder guardar porcentaje de responsabilidad
+        through="WorkOrderDriver",
     )
 
-    # Campos base
+    # Datos generales
     description = models.TextField("Descripción del Problema/Trabajo Principal")
     scheduled_start = models.DateTimeField("Inicio Programado", null=True, blank=True)
     scheduled_end = models.DateTimeField("Fin Programado (Estimado)", null=True, blank=True)
     check_in_at = models.DateTimeField("Ingreso Real", null=True, blank=True)
     check_out_at = models.DateTimeField("Salida Real", null=True, blank=True)
     odometer_at_service = models.PositiveIntegerField(
-        "Kilometraje al Ingresar",
-        null=True,
-        blank=True,
+        "Kilometraje al Ingresar", null=True, blank=True,
         help_text="KM del vehículo al momento de esta OT",
     )
 
-    # Costos
+    # Campos de costos (calculados vía señales)
     labor_cost_internal = models.DecimalField("Costo MO Interna", max_digits=10, decimal_places=2, default=0.0)
     labor_cost_external = models.DecimalField("Costo MO Terceros", max_digits=10, decimal_places=2, default=0.0)
     parts_cost = models.DecimalField("Costo Repuestos", max_digits=10, decimal_places=2, default=0.0)
 
-    # --- NUEVO (Correctivas F1) ---
-    pre_diagnosis = models.TextField("Pre-diagnóstico", blank=True)
-    severity = models.CharField("Severidad", max_length=12, choices=Severity.choices, null=True, blank=True)
-    failure_origin = models.CharField("Origen de la falla", max_length=20, choices=FailureOrigin.choices, null=True, blank=True)
-    probable_causes = models.ManyToManyField(
-        ProbableCause, verbose_name="Causas probables", blank=True, related_name="work_orders"
-    )
+    created_at = models.DateTimeField("Fecha de Creación", auto_now_add=True)
 
-    warranty_covered = models.BooleanField("Cubre garantía", default=False)
+    # -----------------------
+    # Campos Correctivo
+    # -----------------------
+    pre_diagnosis = models.TextField("Pre-diagnóstico", blank=True)
+    failure_origin = models.CharField(
+        "Origen de la falla", max_length=20, choices=FailureOrigin.choices, null=True, blank=True
+    )
+    severity = models.CharField(
+        "Severidad", max_length=12, choices=Severity.choices, null=True, blank=True
+    )
     requires_approval = models.BooleanField("Requiere aprobación", default=False)
     out_of_service = models.BooleanField("Vehículo fuera de servicio", default=False)
-
-    created_at = models.DateTimeField("Fecha de Creación", auto_now_add=True)
+    warranty_covered = models.BooleanField("Cubre garantía", default=False)
+    probable_causes = models.ManyToManyField(
+        ProbableCause, blank=True, related_name="work_orders", verbose_name="Causas probables"
+    )
 
     def __str__(self) -> str:
         return f"OT-{self.id} ({self.get_order_type_display()}) para {self.vehicle.plate}"
 
     def recalculate_costs(self) -> None:
-        """Recalculate labor and parts costs based on related items."""
+        """Recalcular costos en base a tareas y repuestos."""
         labor_costs = self.tasks.aggregate(
-            internal=Sum("hours_spent", filter=models.Q(is_external=False)),
-            external=Sum("labor_rate", filter=models.Q(is_external=True)),
+            internal=Sum("hours_spent", filter=Q(is_external=False)),
+            external=Sum("labor_rate", filter=Q(is_external=True)),
         )
-        internal_rate = 50000  # TODO: make configurable
+        internal_rate = 50000  # TODO: parametrizar
         self.labor_cost_internal = (labor_costs["internal"] or 0) * internal_rate
         self.labor_cost_external = labor_costs["external"] or 0
 
         parts_total = self.parts_used.aggregate(
-            total=Sum(
-                ExpressionWrapper(
-                    F("quantity") * F("cost_at_moment"),
-                    output_field=DecimalField(),
-                )
-            )
+            total=Sum(ExpressionWrapper(F("quantity") * F("cost_at_moment"), output_field=DecimalField()))
         )["total"]
         self.parts_cost = parts_total or 0
 
@@ -288,82 +281,17 @@ class WorkOrder(models.Model):
         ordering = ["-created_at"]
 
 
-class WorkOrderDriver(models.Model):
-    """Relación OT <-> Conductor con porcentaje de responsabilidad."""
-    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="driver_links")
-    driver = models.ForeignKey("users.Driver", on_delete=models.PROTECT, related_name="work_order_links")
-    responsibility_percent = models.DecimalField("Responsabilidad (%)", max_digits=5, decimal_places=2, null=True, blank=True)
-
-    class Meta:
-        unique_together = ("work_order", "driver")
-        verbose_name = "Responsable en OT"
-        verbose_name_plural = "Responsables en OT"
-
-    def __str__(self):
-        return f"{self.driver} en {self.work_order} ({self.responsibility_percent or 0}%)"
-
-
-class WorkOrderNote(models.Model):
-    """Bitácora / Novedades con control de visibilidad."""
-    class Visibility(models.TextChoices):
-        ALL = "ALL", "Todos"
-        MGMT_ONLY = "MGMT_ONLY", "Solo Gerencia"
-
-    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="notes")
-    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-    visibility = models.CharField("Visibilidad", max_length=10, choices=Visibility.choices, default=Visibility.ALL)
-    text = models.TextField("Comentario / Novedad")
-    created_at = models.DateTimeField("Fecha", auto_now_add=True)
-
-    class Meta:
-        verbose_name = "Novedad de OT"
-        verbose_name_plural = "Novedades de OT"
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        quien = self.author or "Sistema"
-        return f"{quien} @ {self.created_at:%Y-%m-%d %H:%M}"
-
-
-class WorkOrderAttachment(models.Model):
-    """Adjuntos simples por URL (imágenes, PDFs, etc.)."""
-    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="attachments")
-    url = models.URLField("URL")
-    description = models.CharField("Descripción", max_length=200, blank=True)
-    created_at = models.DateTimeField("Fecha", auto_now_add=True)
-
-    class Meta:
-        verbose_name = "Adjunto de OT"
-        verbose_name_plural = "Adjuntos de OT"
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return self.url
-
-
-# ---------------------------------------------------------------------
-# Tareas y Repuestos (se mantienen)
-# ---------------------------------------------------------------------
-
 class WorkOrderTask(models.Model):
-    """Individual task associated with a work order."""
+    """Trabajo / actividad dentro de una OT."""
 
     work_order = models.ForeignKey(
         WorkOrder, on_delete=models.CASCADE, related_name="tasks", verbose_name="Orden de Trabajo"
     )
     category = models.ForeignKey(
-        MaintenanceCategory,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Categoría",
+        MaintenanceCategory, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Categoría"
     )
     subcategory = models.ForeignKey(
-        MaintenanceSubcategory,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Subcategoría",
+        MaintenanceSubcategory, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Subcategoría"
     )
     description = models.CharField("Descripción del Trabajo", max_length=255, blank=True)
     hours_spent = models.DecimalField("Horas Invertidas", max_digits=5, decimal_places=2, default=0.0)
@@ -371,6 +299,7 @@ class WorkOrderTask(models.Model):
     labor_rate = models.DecimalField(
         "Tarifa o Costo Fijo (Tercero)", max_digits=10, decimal_places=2, null=True, blank=True
     )
+    # Nota: mantenemos el JSON de URLs (histórico); evidencias por archivo vendrán en otra fase
     evidence_urls = models.JSONField("URLs de Evidencias", default=list, blank=True)
 
     def __str__(self) -> str:
@@ -382,7 +311,7 @@ class WorkOrderTask(models.Model):
 
 
 class WorkOrderPart(models.Model):
-    """Part used within a work order."""
+    """Repuesto usado en una OT."""
 
     work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="parts_used")
     part = models.ForeignKey(Part, on_delete=models.PROTECT, verbose_name="Repuesto")
@@ -395,28 +324,76 @@ class WorkOrderPart(models.Model):
         verbose_name_plural = "Repuestos Usados en OT"
 
 
-# ---------------------------------------------------------------------
-# Señales
-# ---------------------------------------------------------------------
+class WorkOrderAttachment(models.Model):
+    """Adjuntos simples (URL) a nivel de OT (histórico)."""
 
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="attachments")
+    url = models.URLField("URL")
+    description = models.CharField("Descripción", max_length=200, blank=True)
+    created_at = models.DateTimeField("Fecha", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Adjunto de OT"
+        verbose_name_plural = "Adjuntos de OT"
+        ordering = ["-created_at"]
+
+
+class WorkOrderDriver(models.Model):
+    """Tabla intermedia para responsables (conductores) en una OT."""
+
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="driver_links")
+    driver = models.ForeignKey("users.Driver", on_delete=models.PROTECT, related_name="work_order_links")
+    responsibility_percent = models.DecimalField(
+        "Responsabilidad (%)", max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    class Meta:
+        verbose_name = "Responsable en OT"
+        verbose_name_plural = "Responsables en OT"
+        unique_together = (("work_order", "driver"),)
+
+
+class WorkOrderNote(models.Model):
+    """Novedades/comentarios con visibilidad (Todos/Gerencia)."""
+
+    class Visibility(models.TextChoices):
+        ALL = "ALL", "Todos"
+        MGMT_ONLY = "MGMT_ONLY", "Solo Gerencia"
+
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name="notes")
+    visibility = models.CharField("Visibilidad", max_length=10, choices=Visibility.choices, default=Visibility.ALL)
+    text = models.TextField("Comentario / Novedad")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField("Fecha", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Novedad de OT"
+        verbose_name_plural = "Novedades de OT"
+        ordering = ["-created_at"]
+
+
+# -----------------------------
+# Señales: costos al vuelo
+# -----------------------------
 @receiver([post_save, post_delete], sender=WorkOrderTask)
 def on_task_change(sender, instance, **kwargs):
-    """Recalculate costs when a task is added or removed."""
     instance.work_order.recalculate_costs()
 
 
 @receiver([post_save, post_delete], sender=WorkOrderPart)
 def on_part_change(sender, instance, **kwargs):
-    """Recalculate costs when a part is added or removed."""
     instance.work_order.recalculate_costs()
 
 
+# -----------------------------
+# Señal: activar plan con 1er preventivo
+# -----------------------------
 @receiver(post_save, sender=WorkOrder)
 def activate_plan_on_first_preventive(sender, instance: WorkOrder, created, **kwargs):
     """
-    Cuando una OT Preventiva se marca COMPLETED:
-    - Activa el plan de mantenimiento del vehículo (si no estaba activo).
-    - Actualiza last_service_km y last_service_date con el odómetro actual.
+    Al marcar COMPLETED una OT Preventiva:
+    - Activa el plan del vehículo (si no lo estaba).
+    - Actualiza last_service_km y last_service_date al odómetro actual.
     """
     try:
         if instance.order_type != WorkOrder.OrderType.PREVENTIVE:
@@ -434,21 +411,19 @@ def activate_plan_on_first_preventive(sender, instance: WorkOrder, created, **kw
             },
         )
 
-        updated_fields = []
-
+        updated = False
         current_km = vehicle.current_odometer_km or 0
         if current_km > (plan.last_service_km or 0):
             plan.last_service_km = current_km
             plan.last_service_date = timezone.now().date()
-            updated_fields += ["last_service_km", "last_service_date"]
+            updated = True
 
         if not plan.is_active:
             plan.is_active = True
-            updated_fields.append("is_active")
+            updated = True
 
-        if updated_fields:
-            plan.save(update_fields=updated_fields)
-
+        if updated:
+            plan.save()
     except Exception:
         import logging
         logging.getLogger(__name__).exception("Error al activar plan preventivo")

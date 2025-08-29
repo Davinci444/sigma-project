@@ -1,34 +1,26 @@
-// Toggle de secciones Preventivo/Correctivo basado en 'order_type'.
-// No requiere migraciones.
-
-(function() {
-  function applyVisibility() {
+// workorders/static/workorders/admin_workorder.js
+(function () {
+  function toggleByType() {
     var select = document.getElementById("id_order_type");
     if (!select) return;
+    var ot = select.value || "CORRECTIVE";
 
-    var val = select.value || "CORRECTIVE";
-    var preventivos = document.querySelectorAll(".sigma-preventive-only");
-    var correctivos = document.querySelectorAll(".sigma-corrective-only");
+    var corrective = document.querySelectorAll(".sigma-corrective-only");
+    var preventive = document.querySelectorAll(".sigma-preventive-only");
 
-    if (val === "PREVENTIVE") {
-      preventivos.forEach(function(el){ el.style.display = ""; });
-      correctivos.forEach(function(el){ el.style.display = "none"; });
-    } else {
-      preventivos.forEach(function(el){ el.style.display = "none"; });
-      correctivos.forEach(function(el){ el.style.display = ""; });
-    }
+    corrective.forEach(function (el) {
+      el.style.display = (ot === "CORRECTIVE") ? "" : "none";
+    });
+    preventive.forEach(function (el) {
+      el.style.display = (ot === "PREVENTIVE") ? "" : "none";
+    });
   }
 
-  function ready(fn) {
-    if (document.readyState !== "loading") fn();
-    else document.addEventListener("DOMContentLoaded", fn);
-  }
-
-  ready(function() {
+  document.addEventListener("DOMContentLoaded", function () {
     var sel = document.getElementById("id_order_type");
     if (sel) {
-      sel.addEventListener("change", applyVisibility);
-      applyVisibility();
+      sel.addEventListener("change", toggleByType);
+      toggleByType();
     }
   });
 })();
