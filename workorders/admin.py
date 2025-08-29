@@ -1,9 +1,7 @@
-"""Admin configuration for work order management."""
+"""Admin de órdenes de trabajo y planes de mantenimiento (SIGMA)."""
 
-from datetime import timedelta
-
+from django import forms
 from django.contrib import admin, messages
-from django.utils import timezone
 
 from .models import (
     MaintenancePlan,
@@ -15,220 +13,221 @@ from .models import (
     MaintenanceManual,
     ManualTask,
 )
+from .corrective_models import (
+    WorkOrderCorrective,
+    WorkOrderDriverAssignment,
+)
+from users.models import Driver
 
 
-class OperationalStatusFilter(admin.SimpleListFilter):
-    """Filter work orders by the operational status of their vehicles."""
+# ==========================
+# Formulario con JS dependiente (Categoría -> Subcategoría)
+# ==========================
 
-    title = "Estado Operativo"
-    parameter_name = "operational_status"
+class WorkOrderTaskForm(forms.ModelForm):
+    class Meta:
+        model = WorkOrderTask
+        fields = "__all__"
 
-    def lookups(self, request, model_admin):
-        """Return available filter options."""
-
-        return (
-            ("in_workshop", "Vehículos en Taller"),
-            ("scheduled", "Vehículos Programados"),
-        )
-
-    def queryset(self, request, queryset):
-        """Filter the queryset according to the selected option."""
-
-        today = timezone.now()
-        if self.value() == "in_workshop":
-            return queryset.filter(
-                check_in_at__isnull=False,
-                check_in_at__lte=today,
-            ).exclude(
-                status__in=[WorkOrder.OrderStatus.VERIFIED, WorkOrder.OrderStatus.CANCELLED]
-            )
-        if self.value() == "scheduled":
-            return queryset.filter(
-                status=WorkOrder.OrderStatus.SCHEDULED,
-                scheduled_start__isnull=False,
-                scheduled_start__gt=today,
-            )
-        return queryset
+    class Media:
+        js = ("workorders/js/admin_dependent_subcategory.js",)
 
 
-class MaintenanceSubcategoryInline(admin.TabularInline):
-    """Inline display of maintenance subcategories."""
+# ==========================
+# Inlines existentes (tareas, repuestos)
+# ==========================
 
-    model = MaintenanceSubcategory
+class WorkOrderTaskInline(admin.TabularInline):
+    model = WorkOrderTask
+    form = WorkOrderTaskForm
     extra = 1
+    autocomplete_fields = ("category", "subcategory")
+    fields = ("category", "subcategory", "description", "estimated_hours", "actual_hours", "is_completed")
 
+
+class WorkOrderPartInline(admin.TabularInline):
+    model = WorkOrderPart
+    extra = 1
+    autocomplete_fields = ("part",)
+    fields = ("part", "quantity", "unit_cost")
+
+
+# ==========================
+# Inlines Correctivo (nuevo)
+# ==========================
+
+class WorkOrderCorrectiveInline(admin.StackedInline):
+    model = WorkOrderCorrective
+    extra = 0
+    max_num = 1
+    can_delete = True
+    fields = ("pre_diagnosis",)
+
+
+class WorkOrderDriverAssignmentInline(admin.TabularInline):
+    model = WorkOrderDriverAssignment
+    extra = 1
+    autocomplete_fields = ("driver",)
+    fields = ("driver", "role", "notes")
+
+    _parent_obj = None
+
+    def get_formset(self, request, obj=None, **kwargs):
+        # Guardamos la OT padre para filtrar por zona del vehículo
+        self._parent_obj = obj
+        return super().get_formset(request, obj, **kwargs)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # Filtrar conductores por Zona del vehículo (si existe)
+        if db_field.name == "driver":
+            qs = Driver.objects.filter(active=True)
+            zone = None
+            if self._parent_obj and getattr(self._parent_obj, "vehicle_id", None):
+                zone = getattr(getattr(self._parent_obj, "vehicle", None), "zone", None)
+            if zone:
+                qs = qs.filter(zone=zone)
+            kwargs["queryset"] = qs.order_by("full_name")
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+# ==========================
+# Catálogos / Manuales
+# ==========================
 
 @admin.register(MaintenanceCategory)
 class MaintenanceCategoryAdmin(admin.ModelAdmin):
-    """Admin interface for maintenance categories."""
-
-    list_display = ("name", "description")
+    list_display = ("id", "name")
     search_fields = ("name",)
-    inlines = [MaintenanceSubcategoryInline]
 
 
-class ManualTaskInline(admin.TabularInline):
-    """Inline display of manual tasks."""
-
-    model = ManualTask
-    extra = 1
+@admin.register(MaintenanceSubcategory)
+class MaintenanceSubcategoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "category")
+    list_filter = ("category",)
+    search_fields = ("name", "category__name")
+    autocomplete_fields = ("category",)
 
 
 @admin.register(MaintenanceManual)
 class MaintenanceManualAdmin(admin.ModelAdmin):
-    """Admin interface for maintenance manuals."""
-
-    list_display = ("name", "fuel_type")
-    inlines = [ManualTaskInline]
-
-
-class WorkOrderTaskInline(admin.TabularInline):
-    """Inline tasks within a work order."""
-
-    model = WorkOrderTask
-    extra = 1
-    fields = (
-        "category",
-        "subcategory",
-        "description",
-        "hours_spent",
-        "is_external",
-        "labor_rate",
-    )
+    list_display = ("id", "name", "fuel_type")
+    list_filter = ("fuel_type",)
+    search_fields = ("name",)
 
 
-class WorkOrderPartInline(admin.TabularInline):
-    """Inline parts used in a work order."""
+@admin.register(ManualTask)
+class ManualTaskAdmin(admin.ModelAdmin):
+    list_display = ("id", "manual", "description", "km_interval")
+    list_filter = ("manual",)
+    search_fields = ("description", "manual__name")
+    autocomplete_fields = ("manual",)
 
-    model = WorkOrderPart
-    extra = 1
 
+# ==========================
+# Planes
+# ==========================
 
 @admin.register(MaintenancePlan)
 class MaintenancePlanAdmin(admin.ModelAdmin):
-    """Admin interface for maintenance plans."""
-
-    list_display = (
-        "vehicle",
-        "manual",
-        "is_active",
-        "last_service_km",
-        "last_service_date",
-    )
+    list_display = ("id", "vehicle", "manual", "is_active", "last_service_km", "last_service_date")
     list_filter = ("is_active", "manual")
-    readonly_fields = ("is_active", "last_service_km", "last_service_date")
+    search_fields = ("vehicle__plate", "manual__name")
+    autocomplete_fields = ("vehicle", "manual")
+    list_select_related = ("vehicle", "manual")
+    date_hierarchy = "last_service_date"
 
+
+# ==========================
+# Órdenes de Trabajo
+# ==========================
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    """Admin interface for work orders."""
-
+    """
+    Admin de OT con:
+    - Inlines de tareas, repuestos
+    - Inlines de correctivo (pre-diagnóstico y conductores) SOLO si la OT es CORRECTIVA
+    - Advertencia de preventivo vencido al abrir OT preventiva
+    """
     list_display = (
-        "id",
-        "order_type",
-        "vehicle",
-        "status",
-        "priority",
-        "scheduled_start",
+        "id", "order_type", "status", "vehicle", "priority",
+        "scheduled_start", "scheduled_end", "created_at",
     )
-    search_fields = ("id", "vehicle__plate", "description")
-    list_filter = (OperationalStatusFilter, "status", "priority", "order_type")
-    inlines = [WorkOrderTaskInline, WorkOrderPartInline]
+    list_filter = ("order_type", "status", "priority")
+    search_fields = ("id", "vehicle__plate", "vehicle__brand", "vehicle__model")
+    autocomplete_fields = ("vehicle",)
+    date_hierarchy = "scheduled_start"
+    list_select_related = ("vehicle",)
+
+    # Inlines por defecto (tareas y repuestos y correctivo)
+    inlines = [WorkOrderTaskInline, WorkOrderPartInline, WorkOrderCorrectiveInline, WorkOrderDriverAssignmentInline]
+
     fieldsets = (
-        (
-            "Información Principal",
-            {
-                "fields": (
-                    "order_type",
-                    "vehicle",
-                    "status",
-                    "priority",
-                    "assigned_technician",
-                    "odometer_at_service",
-                )
-            },
-        ),
-        ("Descripción del Trabajo", {"fields": ("description",)}),
-        (
-            "Programación y Tiempos",
-            {
-                "fields": (
-                    "scheduled_start",
-                    "scheduled_end",
-                    "check_in_at",
-                    "check_out_at",
-                )
-            },
-        ),
-        (
-            "Costos (Calculados)",
-            {
-                "fields": ("labor_cost_internal", "labor_cost_external", "parts_cost"),
-                "classes": ("collapse",),
-            },
-        ),
+        ("Información básica", {
+            "fields": ("order_type", "status", "vehicle", "priority", "description")
+        }),
+        ("Programación", {
+            "fields": ("scheduled_start", "scheduled_end")
+        }),
+        ("Ejecución", {
+            "fields": ("check_in_at", "check_out_at")
+        }),
+        ("Meta", {
+            "fields": ("created_at",),
+        }),
     )
-    readonly_fields = ("labor_cost_internal", "labor_cost_external", "parts_cost")
+    readonly_fields = ("created_at",)
 
-    def get_queryset(self, request):
-        """Limit work orders to the user's zone when not a superuser."""
+    def get_inline_instances(self, request, obj=None):
+        """
+        Mostrar los inlines de Correctivo SOLO cuando la OT es CORRECTIVE.
+        """
+        instances = super().get_inline_instances(request, obj)
+        if obj and obj.order_type != WorkOrder.OrderType.CORRECTIVE:
+            # Filtrar fuera los inlines de correctivo
+            filtered = []
+            for inst in instances:
+                if isinstance(inst, (WorkOrderCorrectiveInline, WorkOrderDriverAssignmentInline)):
+                    continue
+                filtered.append(inst)
+            return filtered
+        return instances
 
-        qs = super().get_queryset(request)
-        if not request.user.is_superuser:
-            try:
-                user_zone = request.user.profile.zone
-                if user_zone:
-                    return qs.filter(vehicle__current_zone=user_zone)
-            except (AttributeError, request.user.profile.DoesNotExist):
-                return qs.none()
-        return qs
-
-    def save_model(self, request, obj, form, change):
-        """Update maintenance plan when verifying preventive work orders."""
-
-        super().save_model(request, obj, form, change)
-        if (
-            obj.order_type == WorkOrder.OrderType.PREVENTIVE
-            and obj.status == WorkOrder.OrderStatus.VERIFIED
-        ):
-            plan = MaintenancePlan.objects.filter(vehicle=obj.vehicle).first()
-            if plan and obj.odometer_at_service:
-                if not plan.is_active:
-                    plan.is_active = True
-                plan.last_service_km = obj.odometer_at_service
-                plan.last_service_date = (
-                    obj.check_out_at.date() if obj.check_out_at else timezone.now().date()
-                )
-                plan.save()
-                messages.success(
-                    request,
-                    f"Plan de mantenimiento para {obj.vehicle.plate} ha sido activado/actualizado.",
-                )
-
-    def render_change_form(
-        self, request, context, add=False, change=False, form_url="", obj=None
-    ):
-        """Warn about overdue preventive maintenance when editing."""
-
-        if obj and obj.vehicle:
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+        """
+        Al abrir una OT existente, si es PREVENTIVA y el plan está vencido según el manual,
+        se muestra advertencia para que el coordinador lo tenga en cuenta.
+        """
+        if obj and obj.order_type == WorkOrder.OrderType.PREVENTIVE and obj.vehicle:
             vehicle = obj.vehicle
-            plan = MaintenancePlan.objects.filter(vehicle=vehicle, is_active=True).first()
-            if plan and plan.manual and vehicle.odometer_status == "VALID":
-                km_since_last_service = vehicle.current_odometer_km - plan.last_service_km
-                next_task = (
-                    plan.manual.tasks.filter(km_interval__gt=km_since_last_service)
-                    .order_by("km_interval")
-                    .first()
-                )
-                if not next_task:
-                    next_task = plan.manual.tasks.order_by("-km_interval").first()
-                if next_task:
-                    next_due_km = plan.last_service_km + next_task.km_interval
-                    if vehicle.current_odometer_km >= next_due_km:
-                        mensaje = (
-                            "¡Mantenimiento Preventivo VENCIDO! "
-                            f"Próximo servicio ({next_task.description}) era a los {next_due_km} km."
-                        )
-                        messages.warning(request, f"ATENCIÓN: {mensaje}")
-        return super().render_change_form(request, context, add, change, form_url, obj)
+            plan = (
+                MaintenancePlan.objects.filter(vehicle=vehicle, is_active=True)
+                .select_related("manual")
+                .first()
+            )
+            if plan and plan.manual:
+                tasks_qs = plan.manual.tasks.order_by("km_interval")
+                base_km = plan.last_service_km or 0
+                current = vehicle.current_odometer_km or 0
+                delta = max(0, current - base_km)
 
+                next_task = None
+                for t in tasks_qs:
+                    if t.km_interval >= delta:
+                        next_task = t
+                        break
+                if not next_task:
+                    # si se pasó del mayor, repetimos por el menor como periodo
+                    first = plan.manual.tasks.order_by("km_interval").first()
+                    period = (first.km_interval if first and first.km_interval else 10000)
+                    next_due_km = base_km + ((delta // period) + 1) * period
+                    desc = f"Ciclo cada {period} km"
+                else:
+                    next_due_km = base_km + next_task.km_interval
+                    desc = next_task.description
+
+                if current >= next_due_km:
+                    mensaje = f"¡Mantenimiento Preventivo VENCIDO! Próximo servicio ({desc}) era a los {next_due_km} km."
+                    messages.warning(request, f"ATENCIÓN: {mensaje}")
+
+        return super().render_change_form(request, context, add, change, form_url, obj)
