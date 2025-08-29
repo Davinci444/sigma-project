@@ -39,3 +39,21 @@ class Driver(models.Model):
     def __str__(self) -> str:
         z = f" - {self.zone}" if self.zone_id else ""
         return f"{self.full_name} ({self.document_number}){z}"
+
+# --- BLOQUE NUEVO: Modelo de Conductores -------------------------------------
+from django.db import models
+
+class Driver(models.Model):
+    full_name = models.CharField("Nombre completo", max_length=150)
+    document_number = models.CharField("Número de documento", max_length=50, unique=True)
+    zone = models.CharField("Zona", max_length=100, blank=True, null=True)
+    is_active = models.BooleanField("Activo", default=True)
+
+    class Meta:
+        verbose_name = "Conductor"
+        verbose_name_plural = "Conductores"
+        ordering = ["full_name"]
+
+    def __str__(self):
+        return f"{self.full_name} ({self.document_number})"
+# --- FIN BLOQUE NUEVO ---------------------------------------------------------

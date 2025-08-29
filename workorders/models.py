@@ -5,6 +5,7 @@ from django.db.models import Sum, F, ExpressionWrapper, DecimalField
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
+from django.utils import timezone
 
 from fleet.models import Vehicle
 from inventory.models import Part
@@ -29,7 +30,6 @@ class MaintenanceManual(models.Model):
 
     def __str__(self) -> str:
         """Return manual name."""
-
         return self.name
 
     class Meta:
@@ -50,7 +50,6 @@ class ManualTask(models.Model):
 
     def __str__(self) -> str:
         """Return a descriptive string for the task."""
-
         return f"A los {self.km_interval} km: {self.description}"
 
     class Meta:
@@ -91,7 +90,6 @@ class MaintenancePlan(models.Model):
 
     def __str__(self) -> str:
         """Return a description of the plan."""
-
         manual_name = self.manual.name if self.manual else "N/A"
         return f"Plan para {self.vehicle.plate} (basado en {manual_name})"
 
@@ -108,7 +106,6 @@ class MaintenanceCategory(models.Model):
 
     def __str__(self) -> str:
         """Return category name."""
-
         return self.name
 
     class Meta:
@@ -130,7 +127,6 @@ class MaintenanceSubcategory(models.Model):
 
     def __str__(self) -> str:
         """Return formatted subcategory name."""
-
         return f"{self.category.name} -> {self.name}"
 
     class Meta:
@@ -184,6 +180,18 @@ class WorkOrder(models.Model):
         related_name="assigned_ots",
         verbose_name="Técnico Asignado",
     )
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # NUEVO: Conductores responsables (M2M con users.Driver)
+    # Usamos referencia en string para evitar import circular.
+    drivers = models.ManyToManyField(
+        "users.Driver",
+        verbose_name="Conductores responsables",
+        blank=True,
+        related_name="work_orders",
+    )
+    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
     description = models.TextField("Descripción del Problema/Trabajo Principal")
     scheduled_start = models.DateTimeField("Inicio Programado", null=True, blank=True)
     scheduled_end = models.DateTimeField(
@@ -210,7 +218,6 @@ class WorkOrder(models.Model):
 
     def __str__(self) -> str:
         """Return readable identifier for the work order."""
-
         return f"OT-{self.id} ({self.get_order_type_display()}) para {self.vehicle.plate}"
 
     def recalculate_costs(self) -> None:
@@ -282,7 +289,6 @@ class WorkOrderTask(models.Model):
 
     def __str__(self) -> str:
         """Return description or subcategory string."""
-
         return str(self.subcategory) if self.subcategory else self.description
 
     class Meta:
@@ -308,24 +314,21 @@ class WorkOrderPart(models.Model):
         verbose_name_plural = "Repuestos Usados en OT"
 
 
-# --- NUEVO: Conectores de Señales (Signals) ---
+# --- Señales para recalcular costos -------------------------------------------
+
 @receiver([post_save, post_delete], sender=WorkOrderTask)
 def on_task_change(sender, instance, **kwargs):
     """Recalculate costs when a task is added or removed."""
-
     instance.work_order.recalculate_costs()
 
 
 @receiver([post_save, post_delete], sender=WorkOrderPart)
 def on_part_change(sender, instance, **kwargs):
     """Recalculate costs when a part is added or removed."""
-
     instance.work_order.recalculate_costs()
 
-# --- ACTIVACIÓN DE PLAN AL CERRAR PRIMER PREVENTIVO ---
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from django.utils import timezone
+
+# --- Activación de plan al cerrar primer preventivo ---------------------------
 
 @receiver(post_save, sender=WorkOrder)
 def activate_plan_on_first_preventive(sender, instance: WorkOrder, created, **kwargs):
@@ -342,7 +345,6 @@ def activate_plan_on_first_preventive(sender, instance: WorkOrder, created, **kw
 
         vehicle = instance.vehicle
         # Busca (o crea) el plan asociado al vehículo
-        from .models import MaintenancePlan, MaintenanceManual
         plan, _ = MaintenancePlan.objects.get_or_create(
             vehicle=vehicle,
             defaults={

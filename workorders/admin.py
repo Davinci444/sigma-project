@@ -1,7 +1,7 @@
-"""Admin ultra estable para evitar 500 en 'Agregar OT'.
-   - Sin inlines en WorkOrder (por ahora).
-   - Sin menús independientes de Tareas/Repuestos (los reactivamos más adelante, dentro de cada OT).
-   - Añade proxies: Órdenes Preventivas / Órdenes Correctivas (formularios mínimos).
+"""Admin ultra estable con Proxies y Conductores en OT.
+   - Sin inlines en WorkOrder para evitar 500 en /add/.
+   - Sin menús independientes de Tareas/Repuestos (se usan luego como inlines si hace falta).
+   - Proxies Preventiva/Correctiva con campo 'drivers' en los formularios.
 """
 
 from django.contrib import admin
@@ -89,14 +89,12 @@ class WorkOrderAdmin(admin.ModelAdmin):
         "scheduled_end",
         "check_in_at",
         "check_out_at",
+        "drivers",  # también visible aquí por consistencia
     )
-
-# IMPORTANTE:
-# - NO registramos WorkOrderTask ni WorkOrderPart como menús (se verán como inlines más adelante).
 
 
 # -------------------------
-# PROXIES: Preventiva / Correctiva (formularios mínimos, sin inlines)
+# PROXIES: Preventiva / Correctiva
 # -------------------------
 
 @admin.register(PreventiveOrder)
@@ -109,7 +107,6 @@ class PreventiveOrderAdmin(admin.ModelAdmin):
     date_hierarchy = "scheduled_start"
     list_select_related = ("vehicle",)
 
-    # No mostramos order_type aquí; lo fijamos al guardar.
     fields = (
         "status",
         "vehicle",
@@ -119,6 +116,7 @@ class PreventiveOrderAdmin(admin.ModelAdmin):
         "scheduled_end",
         "check_in_at",
         "check_out_at",
+        "drivers",  # conductor (opcional) en preventivas
     )
 
     def get_queryset(self, request):
@@ -140,6 +138,9 @@ class CorrectiveOrderAdmin(admin.ModelAdmin):
     date_hierarchy = "scheduled_start"
     list_select_related = ("vehicle",)
 
+    # En Correctivas solemos tener VARIOS responsables → UI cómoda
+    filter_horizontal = ("drivers",)
+
     fields = (
         "status",
         "vehicle",
@@ -149,6 +150,7 @@ class CorrectiveOrderAdmin(admin.ModelAdmin):
         "scheduled_end",
         "check_in_at",
         "check_out_at",
+        "drivers",  # varios responsables
     )
 
     def get_queryset(self, request):
