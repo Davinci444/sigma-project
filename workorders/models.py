@@ -452,37 +452,3 @@ def activate_plan_on_first_preventive(sender, instance: WorkOrder, created, **kw
     except Exception:
         import logging
         logging.getLogger(__name__).exception("Error al activar plan preventivo")
-        
-class WorkOrderTaskEvidence(models.Model):
-    """Evidencias (foto/video) asociadas a una tarea específica de OT."""
-    task = models.ForeignKey(
-        "WorkOrderTask",
-        on_delete=models.CASCADE,
-        related_name="evidences",
-        verbose_name="Trabajo"
-    )
-    file = models.FileField(
-        "Archivo",
-        upload_to="workorder_evidences/%Y/%m/",
-        help_text="Sube imagen o video como evidencia"
-    )
-    description = models.CharField(
-        "Descripción",
-        max_length=255,
-        blank=True
-    )
-    uploaded_at = models.DateTimeField("Fecha de carga", auto_now_add=True)
-
-    def is_image(self):
-        return str(self.file.name).lower().endswith((".jpg", ".jpeg", ".png", ".gif"))
-
-    def is_video(self):
-        return str(self.file.name).lower().endswith((".mp4", ".mov", ".avi", ".webm"))
-
-    def __str__(self):
-        return f"Evidencia de {self.task} ({self.file.name})"
-
-    class Meta:
-        verbose_name = "Evidencia de Trabajo"
-        verbose_name_plural = "Evidencias de Trabajo"
-        ordering = ["-uploaded_at"]
