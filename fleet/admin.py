@@ -55,10 +55,6 @@ class VehicleAdmin(admin.ModelAdmin):
     ordering = ("plate",)
 
     def usuario_gestor_asignado(self, obj: Vehicle):
-        """
-        Muestra un “usuario/gestor” si tu modelo tiene alguno de estos campos.
-        Si no existe, devuelve —.
-        """
         for name in ("assigned_user", "user", "owner", "manager", "assigned_to"):
             if hasattr(obj, name):
                 u = getattr(obj, name)
