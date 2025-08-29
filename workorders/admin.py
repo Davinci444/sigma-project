@@ -156,7 +156,8 @@ class WorkOrderAdmin(admin.ModelAdmin):
     )
     list_filter = ("order_type", "status", "priority")
     search_fields = ("id", "vehicle__plate", "vehicle__brand", "vehicle__model")
-    autocomplete_fields = ("vehicle",)
+    # 🔧 Quitar autocomplete para evitar 500 en "Agregar OT"
+    raw_id_fields = ("vehicle",)
     date_hierarchy = "scheduled_start"
     list_select_related = ("vehicle",)
 
@@ -189,11 +190,9 @@ class WorkOrderAdmin(admin.ModelAdmin):
         for inst in instances:
             is_corrective_inline = isinstance(inst, (WorkOrderCorrectiveInline, WorkOrderDriverAssignmentInline))
             if obj is None:
-                # En "Add" ocultar los inlines de correctivo
                 if is_corrective_inline:
                     continue
             else:
-                # En "Change": solo mostrar correctivo si la OT es correctiva
                 if is_corrective_inline and obj.order_type != WorkOrder.OrderType.CORRECTIVE:
                     continue
             filtered.append(inst)
