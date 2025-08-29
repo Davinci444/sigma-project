@@ -1,6 +1,7 @@
 """Admin ultra estable para evitar 500 en 'Agregar OT'.
-   - Sin inlines en WorkOrder.
-   - Sin menús independientes de Tareas/Repuestos (se reactivarán más adelante si hace falta).
+   - Sin inlines en WorkOrder (por ahora).
+   - Sin menús independientes de Tareas/Repuestos (los reactivamos más adelante, dentro de cada OT).
+   - Añade proxies: Órdenes Preventivas / Órdenes Correctivas (formularios mínimos).
 """
 
 from django.contrib import admin
@@ -14,6 +15,8 @@ from .models import (
     MaintenanceManual,
     ManualTask,
 )
+from .proxies import PreventiveOrder, CorrectiveOrder
+
 
 # -------------------------
 # Catálogos / Manuales
@@ -63,7 +66,7 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
 
 
 # -------------------------
-# Órdenes de trabajo (ULTRA MINIMAL)
+# Órdenes de trabajo (ULTRA MINIMAL, sin inlines)
 # -------------------------
 
 @admin.register(WorkOrder)
@@ -76,7 +79,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
     date_hierarchy = "scheduled_start"
     list_select_related = ("vehicle",)
 
-    # Campos mínimos y seguros. (No inlines)
     fields = (
         "order_type",
         "status",
@@ -90,6 +92,69 @@ class WorkOrderAdmin(admin.ModelAdmin):
     )
 
 # IMPORTANTE:
-# - NO registramos @admin.register(WorkOrderTask) ni @admin.register(WorkOrderPart)
-#   (para que NO aparezcan como menús). Los reusaremos más adelante como inlines,
-#   pero primero estabilizamos la pantalla de 'Agregar OT'.
+# - NO registramos WorkOrderTask ni WorkOrderPart como menús (se verán como inlines más adelante).
+
+
+# -------------------------
+# PROXIES: Preventiva / Correctiva (formularios mínimos, sin inlines)
+# -------------------------
+
+@admin.register(PreventiveOrder)
+class PreventiveOrderAdmin(admin.ModelAdmin):
+    """Vista dedicada para Preventivas: fija el tipo al guardar y filtra el listado."""
+    list_display = ("id", "status", "vehicle", "scheduled_start")
+    list_filter = ("status",)
+    search_fields = ("id", "vehicle__plate")
+    raw_id_fields = ("vehicle",)
+    date_hierarchy = "scheduled_start"
+    list_select_related = ("vehicle",)
+
+    # No mostramos order_type aquí; lo fijamos al guardar.
+    fields = (
+        "status",
+        "vehicle",
+        "priority",
+        "description",
+        "scheduled_start",
+        "scheduled_end",
+        "check_in_at",
+        "check_out_at",
+    )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(order_type=WorkOrder.OrderType.PREVENTIVE)
+
+    def save_model(self, request, obj, form, change):
+        obj.order_type = WorkOrder.OrderType.PREVENTIVE
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(CorrectiveOrder)
+class CorrectiveOrderAdmin(admin.ModelAdmin):
+    """Vista dedicada para Correctivas: fija el tipo al guardar y filtra el listado."""
+    list_display = ("id", "status", "vehicle", "scheduled_start")
+    list_filter = ("status",)
+    search_fields = ("id", "vehicle__plate")
+    raw_id_fields = ("vehicle",)
+    date_hierarchy = "scheduled_start"
+    list_select_related = ("vehicle",)
+
+    fields = (
+        "status",
+        "vehicle",
+        "priority",
+        "description",
+        "scheduled_start",
+        "scheduled_end",
+        "check_in_at",
+        "check_out_at",
+    )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(order_type=WorkOrder.OrderType.CORRECTIVE)
+
+    def save_model(self, request, obj, form, change):
+        obj.order_type = WorkOrder.OrderType.CORRECTIVE
+        super().save_model(request, obj, form, change)
