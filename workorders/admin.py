@@ -1,243 +1,269 @@
-"""Admin robusto y estable:
-   - Catálogos visibles.
-   - WorkOrder base mínimo.
-   - Proxies Preventiva/Correctiva.
-   - Inlines (Notas, Adjuntos, Responsables) SOLO en edición para evitar 500 en /add/.
-   - IMPORTANTE: Como WorkOrder.drivers usa through=WorkOrderDriver, NO se incluye en fieldsets ni filter_horizontal.
-"""
+"""Admin de Órdenes de Trabajo y Taxonomía (estable y sin sorpresas)."""
 
 from django.contrib import admin
+from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
+from django import forms
+
 from .models import (
-    MaintenanceCategory,
-    MaintenanceSubcategory,
     MaintenanceManual,
     ManualTask,
+    MaintenanceCategory,
+    MaintenanceSubcategory,
     MaintenancePlan,
     WorkOrder,
     WorkOrderTask,
     WorkOrderPart,
     ProbableCause,
+    WorkOrderDriver,
     WorkOrderNote,
     WorkOrderAttachment,
-    WorkOrderDriver,
 )
-from .proxies import PreventiveOrder, CorrectiveOrder
 
 
-# -------------------------
-# Catálogos
-# -------------------------
+# ---------------------------
+# Taxonomía / Manuales
+# ---------------------------
+
+@admin.register(MaintenanceManual)
+class MaintenanceManualAdmin(admin.ModelAdmin):
+    list_display = ("name", "fuel_type")
+    search_fields = ("name",)
+    list_filter = ("fuel_type",)
+
+
+@admin.register(ManualTask)
+class ManualTaskAdmin(admin.ModelAdmin):
+    list_display = ("manual", "km_interval", "description")
+    list_filter = ("manual",)
+    search_fields = ("description",)
+
 
 @admin.register(MaintenanceCategory)
 class MaintenanceCategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "name")
+    list_display = ("name", "description")
     search_fields = ("name",)
 
 
 @admin.register(MaintenanceSubcategory)
 class MaintenanceSubcategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "category")
+    list_display = ("category", "name", "description")
     list_filter = ("category",)
     search_fields = ("name", "category__name")
-    autocomplete_fields = ("category",)
-
-
-@admin.register(MaintenanceManual)
-class MaintenanceManualAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "fuel_type")
-    list_filter = ("fuel_type",)
-    search_fields = ("name",)
-
-
-@admin.register(ManualTask)
-class ManualTaskAdmin(admin.ModelAdmin):
-    list_display = ("id", "manual", "description", "km_interval")
-    list_filter = ("manual",)
-    search_fields = ("description", "manual__name")
-    autocomplete_fields = ("manual",)
 
 
 @admin.register(ProbableCause)
 class ProbableCauseAdmin(admin.ModelAdmin):
-    list_display = ("id", "name")
+    list_display = ("name", "description")
     search_fields = ("name",)
 
 
-# -------------------------
-# Planes
-# -------------------------
-
 @admin.register(MaintenancePlan)
 class MaintenancePlanAdmin(admin.ModelAdmin):
-    list_display = ("id", "vehicle", "manual", "is_active", "last_service_km", "last_service_date")
-    list_filter = ("is_active", "manual")
+    list_display = ("vehicle", "manual", "is_active", "last_service_km", "last_service_date")
+    list_filter = ("is_active", "manual__fuel_type")
     search_fields = ("vehicle__plate", "manual__name")
-    raw_id_fields = ("vehicle", "manual")
-    list_select_related = ("vehicle", "manual")
-    date_hierarchy = "last_service_date"
 
 
-# -------------------------
-# Inlines (solo en edición)
-# -------------------------
+# ---------------------------
+# Inlines para OT
+# ---------------------------
+
+class WorkOrderDriverInline(admin.TabularInline):
+    """
+    Inline para asignar Conductores responsables a la OT.
+    Usa el modelo intermedio (through) WorkOrderDriver.
+    """
+    model = WorkOrderDriver
+    extra = 1
+    autocomplete_fields = ["driver"]
+    fields = ("driver", "responsibility_percent")
+    verbose_name = "Conductor responsable"
+    verbose_name_plural = "Conductores responsables"
+
 
 class WorkOrderNoteInline(admin.TabularInline):
+    """
+    Inline de Novedades/Notas de la OT.
+    El autor se completa al guardar (si ya tienes esa lógica en admin or save_model,
+    puedes dejar editable; si no, lo dejamos visible y editable).
+    """
     model = WorkOrderNote
     extra = 0
-    fields = ("created_at", "author", "visibility", "text")
+    fields = ("visibility", "text", "author", "created_at")
     readonly_fields = ("created_at",)
     autocomplete_fields = ("author",)
+    verbose_name = "Novedad / Comentario"
+    verbose_name_plural = "Novedades / Comentarios"
 
 
 class WorkOrderAttachmentInline(admin.TabularInline):
     model = WorkOrderAttachment
     extra = 0
-    fields = ("created_at", "url", "description")
+    fields = ("url", "description", "created_at")
     readonly_fields = ("created_at",)
+    verbose_name = "Adjunto"
+    verbose_name_plural = "Adjuntos"
 
 
-class WorkOrderDriverInline(admin.TabularInline):
-    """M2M through para Conductores (permite % de responsabilidad)."""
-    model = WorkOrderDriver
+# Estos modelos siguen existiendo pero no queremos que aparezcan en el menú.
+# Se usarán en el futuro como inlines específicos si los activamos.
+class WorkOrderTaskInline(admin.TabularInline):
+    model = WorkOrderTask
     extra = 0
-    autocomplete_fields = ("driver",)
-    fields = ("driver", "responsibility_percent")
+    fields = ("category", "subcategory", "description", "hours_spent", "is_external", "labor_rate")
+    autocomplete_fields = ("category", "subcategory")
+    verbose_name = "Trabajo adicional"
+    verbose_name_plural = "Trabajos adicionales"
 
 
-# -------------------------
-# WorkOrder base (mínimo)
-# -------------------------
+class WorkOrderPartInline(admin.TabularInline):
+    model = WorkOrderPart
+    extra = 0
+    fields = ("part", "quantity", "cost_at_moment")
+    autocomplete_fields = ("part",)
+    verbose_name = "Repuesto usado"
+    verbose_name_plural = "Repuestos usados"
+
+
+# ---------------------------
+# Admin de OT
+# ---------------------------
+
+class WorkOrderAdminForm(forms.ModelForm):
+    class Meta:
+        model = WorkOrder
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Renombrar dinámicamente etiqueta sin tocar el modelo (evita migraciones)
+        if "assigned_technician" in self.fields:
+            self.fields["assigned_technician"].label = "Gestor asignado"
+
+        # Placeholders útiles
+        if "description" in self.fields:
+            self.fields["description"].widget.attrs.setdefault(
+                "placeholder",
+                "Describe el problema o la intervención principal…",
+            )
+        if "pre_diagnosis" in self.fields:
+            self.fields["pre_diagnosis"].widget.attrs.setdefault(
+                "placeholder",
+                "Pre-diagnóstico (si aplica para correctivo)…",
+            )
+
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "order_type", "status", "vehicle", "scheduled_start")
+    form = WorkOrderAdminForm
+
+    # Vista de lista
+    list_display = (
+        "id",
+        "order_type",
+        "vehicle",
+        "status",
+        "priority",
+        "gestor_asignado",
+        "created_at",
+        "out_of_service",
+        "requires_approval",
+    )
     list_filter = (
         "order_type",
         "status",
-        "severity",
-        "failure_origin",
-        "warranty_covered",
-        "requires_approval",
+        "priority",
         "out_of_service",
+        "requires_approval",
+        "severity",
     )
-    search_fields = ("id", "vehicle__plate", "description", "pre_diagnosis")
-    raw_id_fields = ("vehicle", "assigned_technician")
-    date_hierarchy = "scheduled_start"
-    list_select_related = ("vehicle",)
+    search_fields = (
+        "id",
+        "vehicle__plate",
+        "description",
+        "pre_diagnosis",
+        "notes__text",
+        "drivers__full_name",
+        "drivers__document_number",
+    )
+    date_hierarchy = "created_at"
+    autocomplete_fields = ("vehicle", "assigned_technician", "probable_causes")
 
+    # Secciones del formulario (agrupadas y claras)
     fieldsets = (
-        ("General", {
+        (_("Datos generales"), {
             "fields": (
-                "order_type", "status", "vehicle", "priority", "assigned_technician",
+                "order_type",
+                "vehicle",
+                "status",
+                "priority",
+                "assigned_technician",
                 "description",
             )
         }),
-        ("Programación y Tiempos", {
-            "fields": ("scheduled_start", "scheduled_end", "check_in_at", "check_out_at", "odometer_at_service")
-        }),
-        ("Correctivas (opcional)", {
-            "fields": ("pre_diagnosis", "severity", "failure_origin", "probable_causes",
-                       "warranty_covered", "requires_approval", "out_of_service"),
+        (_("Planificación y tiempos"), {
             "classes": ("collapse",),
+            "fields": (
+                "scheduled_start", "scheduled_end",
+                "check_in_at", "check_out_at",
+                "odometer_at_service",
+            )
         }),
-        ("Costos", {
-            "fields": ("labor_cost_internal", "labor_cost_external", "parts_cost"),
+        (_("Diagnóstico (Correctivo)"), {
             "classes": ("collapse",),
+            "fields": (
+                "pre_diagnosis",
+                "failure_origin",
+                "severity",
+                "warranty_covered",
+                "requires_approval",
+                "out_of_service",
+                "probable_causes",
+            )
+        }),
+        (_("Costos (solo lectura, se recalculan)"), {
+            "classes": ("collapse",),
+            "fields": ("labor_cost_internal", "labor_cost_external", "parts_cost")
+        }),
+        (_("Trazabilidad"), {
+            "classes": ("collapse",),
+            "fields": ("created_at",)
         }),
     )
-    filter_horizontal = ("probable_causes",)  # OJO: drivers NO va aquí (usa through)
 
-    def get_inline_instances(self, request, obj=None):
-        # Para que la página /add/ NO cargue inlines (evita 500).
-        if obj is None:
-            return []
-        # En base, por defecto no agregamos inlines para mantenerlo mínimo.
-        return super().get_inline_instances(request, obj)
+    readonly_fields = ("created_at", "labor_cost_internal", "labor_cost_external", "parts_cost")
 
-
-# -------------------------
-# Proxies
-# -------------------------
-
-@admin.register(PreventiveOrder)
-class PreventiveOrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "status", "vehicle", "scheduled_start")
-    list_filter = ("status",)
-    search_fields = ("id", "vehicle__plate")
-    raw_id_fields = ("vehicle", "assigned_technician")
-    date_hierarchy = "scheduled_start"
-    list_select_related = ("vehicle",)
-
-    fieldsets = (
-        ("Preventiva", {
-            "fields": ("status", "vehicle", "priority", "assigned_technician", "description")
-        }),
-        ("Programación y Tiempos", {
-            "fields": ("scheduled_start", "scheduled_end", "check_in_at", "check_out_at", "odometer_at_service")
-        }),
-        ("Costos", {
-            "fields": ("labor_cost_internal", "labor_cost_external", "parts_cost"),
-            "classes": ("collapse",),
-        }),
+    # Inlines activos (Conductores, Novedades, Adjuntos)
+    inlines = (
+        WorkOrderDriverInline,
+        WorkOrderNoteInline,
+        WorkOrderAttachmentInline,
+        # Dejamos preparados pero desactivados para no sobrecargar formulario:
+        # WorkOrderTaskInline,
+        # WorkOrderPartInline,
     )
-    # Nada de filter_horizontal para drivers (usa through)
-    inlines = [WorkOrderDriverInline]  # Solo en edición (se filtra abajo)
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.filter(order_type=WorkOrder.OrderType.PREVENTIVE)
-
-    def save_model(self, request, obj, form, change):
-        obj.order_type = WorkOrder.OrderType.PREVENTIVE
-        super().save_model(request, obj, form, change)
-
-    def get_inline_instances(self, request, obj=None):
-        # Evita inlines en /add/ para no romper.
-        if obj is None:
-            return []
-        return super().get_inline_instances(request, obj)
+    def gestor_asignado(self, obj: WorkOrder):
+        user = getattr(obj, "assigned_technician", None)
+        if not user:
+            return "—"
+        # Muestra nombre + username para claridad
+        return f"{getattr(user, 'get_full_name', lambda: str(user))() or user.username} (@{user.username})"
+    gestor_asignado.short_description = "Gestor asignado"
 
 
-@admin.register(CorrectiveOrder)
-class CorrectiveOrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "status", "vehicle", "severity", "failure_origin", "scheduled_start")
-    list_filter = ("status", "severity", "failure_origin", "warranty_covered", "requires_approval", "out_of_service")
-    search_fields = ("id", "vehicle__plate", "description", "pre_diagnosis")
-    raw_id_fields = ("vehicle", "assigned_technician")
-    date_hierarchy = "scheduled_start"
-    list_select_related = ("vehicle",)
+# ---------------------------
+# (Opcional) Quitar del menú “Trabajos adicionales” y “Repuestos usados”
+# ---------------------------
+# Están registrados solo como inlines en OT, no como modelos de menú.
+try:
+    admin.site.unregister(WorkOrderTask)
+except admin.sites.NotRegistered:
+    pass
 
-    fieldsets = (
-        ("Correctiva", {
-            "fields": ("status", "vehicle", "priority", "assigned_technician", "description")
-        }),
-        ("Diagnóstico Inicial", {
-            "fields": ("pre_diagnosis", "severity", "failure_origin", "probable_causes")
-        }),
-        ("Estado / Flags", {
-            "fields": ("warranty_covered", "requires_approval", "out_of_service")
-        }),
-        ("Programación y Tiempos", {
-            "fields": ("scheduled_start", "scheduled_end", "check_in_at", "check_out_at", "odometer_at_service")
-        }),
-        ("Costos", {
-            "fields": ("labor_cost_internal", "labor_cost_external", "parts_cost"),
-            "classes": ("collapse",),
-        }),
-    )
-    filter_horizontal = ("probable_causes",)  # drivers NO va aquí (usa through)
-    inlines = [WorkOrderDriverInline, WorkOrderNoteInline, WorkOrderAttachmentInline]
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.filter(order_type=WorkOrder.OrderType.CORRECTIVE)
-
-    def save_model(self, request, obj, form, change):
-        obj.order_type = WorkOrder.OrderType.CORRECTIVE
-        super().save_model(request, obj, form, change)
-
-    def get_inline_instances(self, request, obj=None):
-        # Solo mostrar inlines cuando ya existe la OT (modo edición)
-        if obj is None:
-            return []
-        return super().get_inline_instances(request, obj)
+try:
+    admin.site.unregister(WorkOrderPart)
+except admin.sites.NotRegistered:
+    pass
