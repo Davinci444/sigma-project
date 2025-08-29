@@ -1,5 +1,6 @@
-"""Admin mínimo y limpio para OT: sin menús extra de Tareas/Repuestos.
-   (Se mantienen como inlines cuando edites una OT).
+"""Admin ultra estable para evitar 500 en 'Agregar OT'.
+   - Sin inlines en WorkOrder.
+   - Sin menús independientes de Tareas/Repuestos (se reactivarán más adelante si hace falta).
 """
 
 from django.contrib import admin
@@ -62,40 +63,33 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
 
 
 # -------------------------
-# Órdenes de trabajo (ULTRA MINIMAL y sin menús extra)
+# Órdenes de trabajo (ULTRA MINIMAL)
 # -------------------------
-
-class WorkOrderTaskInline(admin.TabularInline):
-    model = WorkOrderTask
-    extra = 1
-    autocomplete_fields = ("category", "subcategory")
-    fields = ("category", "subcategory", "description", "estimated_hours", "actual_hours", "is_completed")
-
-
-class WorkOrderPartInline(admin.TabularInline):
-    model = WorkOrderPart
-    extra = 1
-    autocomplete_fields = ("part",)
-    fields = ("part", "quantity", "unit_cost")
-
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    """Admin básico para garantizar que '/add/' nunca falle y sin menús sobrantes."""
+    """Admin básico para garantizar que '/add/' nunca falle."""
     list_display = ("id", "order_type", "status", "vehicle", "scheduled_start")
     list_filter = ("order_type", "status")
     search_fields = ("id", "vehicle__plate")
     raw_id_fields = ("vehicle",)
     date_hierarchy = "scheduled_start"
     list_select_related = ("vehicle",)
-    fields = (
-        "order_type", "status", "vehicle", "priority",
-        "description", "scheduled_start", "scheduled_end",
-        "check_in_at", "check_out_at",
-    )
-    inlines = [WorkOrderTaskInline, WorkOrderPartInline]
 
-# NOTA IMPORTANTE:
-# - No registramos @admin.register(WorkOrderTask) ni @admin.register(WorkOrderPart)
-#   para que NO aparezcan como menús independientes.
-#   Se editan sólo dentro de la OT.
+    # Campos mínimos y seguros. (No inlines)
+    fields = (
+        "order_type",
+        "status",
+        "vehicle",
+        "priority",
+        "description",
+        "scheduled_start",
+        "scheduled_end",
+        "check_in_at",
+        "check_out_at",
+    )
+
+# IMPORTANTE:
+# - NO registramos @admin.register(WorkOrderTask) ni @admin.register(WorkOrderPart)
+#   (para que NO aparezcan como menús). Los reusaremos más adelante como inlines,
+#   pero primero estabilizamos la pantalla de 'Agregar OT'.
