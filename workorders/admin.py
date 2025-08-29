@@ -1,5 +1,5 @@
-"""Admin mínimo y robusto para evitar 500 en 'Agregar OT'.
-   Nota: dejamos fuera inlines y dependencias. Luego los reactivamos paso a paso.
+"""Admin mínimo y limpio para OT: sin menús extra de Tareas/Repuestos.
+   (Se mantienen como inlines cuando edites una OT).
 """
 
 from django.contrib import admin
@@ -48,7 +48,7 @@ class ManualTaskAdmin(admin.ModelAdmin):
 
 
 # -------------------------
-# Planes (sin autocomplete dependiente)
+# Planes (robusto en Add)
 # -------------------------
 
 @admin.register(MaintenancePlan)
@@ -62,42 +62,40 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
 
 
 # -------------------------
-# Órdenes de trabajo (ULTRA MINIMAL)
+# Órdenes de trabajo (ULTRA MINIMAL y sin menús extra)
 # -------------------------
+
+class WorkOrderTaskInline(admin.TabularInline):
+    model = WorkOrderTask
+    extra = 1
+    autocomplete_fields = ("category", "subcategory")
+    fields = ("category", "subcategory", "description", "estimated_hours", "actual_hours", "is_completed")
+
+
+class WorkOrderPartInline(admin.TabularInline):
+    model = WorkOrderPart
+    extra = 1
+    autocomplete_fields = ("part",)
+    fields = ("part", "quantity", "unit_cost")
+
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    """Admin básico para garantizar que '/add/' nunca falle."""
+    """Admin básico para garantizar que '/add/' nunca falle y sin menús sobrantes."""
     list_display = ("id", "order_type", "status", "vehicle", "scheduled_start")
     list_filter = ("order_type", "status")
     search_fields = ("id", "vehicle__plate")
     raw_id_fields = ("vehicle",)
     date_hierarchy = "scheduled_start"
     list_select_related = ("vehicle",)
-
-    # Campos mínimos y seguros que existen en tu modelo
     fields = (
         "order_type", "status", "vehicle", "priority",
         "description", "scheduled_start", "scheduled_end",
         "check_in_at", "check_out_at",
     )
+    inlines = [WorkOrderTaskInline, WorkOrderPartInline]
 
-# -------------------------
-# (Opcional) Editores separados si los usas directo
-# -------------------------
-
-@admin.register(WorkOrderTask)
-class WorkOrderTaskAdmin(admin.ModelAdmin):
-    list_display = ("id", "work_order", "category", "subcategory", "is_completed")
-    list_filter = ("is_completed", "category")
-    search_fields = ("work_order__id", "work_order__vehicle__plate", "description")
-    autocomplete_fields = ("work_order", "category", "subcategory")
-    list_select_related = ("work_order", "category", "subcategory")
-
-
-@admin.register(WorkOrderPart)
-class WorkOrderPartAdmin(admin.ModelAdmin):
-    list_display = ("id", "work_order", "part", "quantity", "unit_cost")
-    search_fields = ("work_order__id", "work_order__vehicle__plate", "part__name")
-    autocomplete_fields = ("work_order", "part")
-    list_select_related = ("work_order", "part")
+# NOTA IMPORTANTE:
+# - No registramos @admin.register(WorkOrderTask) ni @admin.register(WorkOrderPart)
+#   para que NO aparezcan como menús independientes.
+#   Se editan sólo dentro de la OT.
