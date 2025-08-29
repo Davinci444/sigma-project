@@ -1,4 +1,4 @@
-"""Admin MINIMAL para aislar el 500 al crear OT."""
+"""Admin MINIMAL-ULTRA para aislar el 500 en 'Añadir OT'."""
 
 from django.contrib import admin
 from .models import (
@@ -16,19 +16,25 @@ from .models import (
     ProbableCause,
 )
 
-# ---------- Admin mínimo de WorkOrder (sin inlines, sin JS, sin form custom) ----------
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
+    fields = (
+        "order_type",
+        "vehicle",
+        "description",
+        "priority",
+        "status",
+        "created_at",
+    )
+    readonly_fields = ("created_at",)
+    raw_id_fields = ("vehicle",)
     list_display = ("id", "vehicle", "order_type", "status", "priority", "created_at")
-    list_select_related = ("vehicle", "assigned_technician")
+    list_select_related = ("vehicle",)
     search_fields = ("id", "vehicle__plate", "description")
     list_filter = ("order_type", "status", "priority")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
-    readonly_fields = ("created_at",)
-    raw_id_fields = ("vehicle", "assigned_technician")
 
-# ---------- Resto: registro simple, sin florituras ----------
 @admin.register(MaintenanceCategory)
 class MaintenanceCategoryAdmin(admin.ModelAdmin):
     search_fields = ("name",)
@@ -65,7 +71,6 @@ class ProbableCauseAdmin(admin.ModelAdmin):
     search_fields = ("name", "description")
     list_display = ("name",)
 
-# Registramos modelos relacionados para no perder acceso desde admin, sin inlines
 @admin.register(WorkOrderTask)
 class WorkOrderTaskAdmin(admin.ModelAdmin):
     raw_id_fields = ("work_order", "category", "subcategory")
