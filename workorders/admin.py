@@ -132,7 +132,8 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
     list_display = ("id", "vehicle", "manual", "is_active", "last_service_km", "last_service_date")
     list_filter = ("is_active", "manual")
     search_fields = ("vehicle__plate", "manual__name")
-    autocomplete_fields = ("vehicle", "manual")
+    # Usar raw_id_fields para evitar dependencias de autocomplete en admins externos
+    raw_id_fields = ("vehicle", "manual")
     list_select_related = ("vehicle", "manual")
     date_hierarchy = "last_service_date"
 
@@ -146,7 +147,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
     """
     Admin de OT con:
     - Inlines de tareas, repuestos
-    - Inlines de correctivo (pre-diagnóstico y conductores) SOLO si la OT es CORRECTIVA
+    - Inlines de correctivo (pre-diagnóstico y conductores) SOLO en edición y si la OT es CORRECTIVE
     - Advertencia de preventivo vencido al abrir OT preventiva
     """
     list_display = (
@@ -159,7 +160,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
     date_hierarchy = "scheduled_start"
     list_select_related = ("vehicle",)
 
-    # Inlines por defecto (tareas y repuestos y correctivo)
+    # Definimos todos, pero los filtramos dinámicamente en get_inline_instances
     inlines = [WorkOrderTaskInline, WorkOrderPartInline, WorkOrderCorrectiveInline, WorkOrderDriverAssignmentInline]
 
     fieldsets = (
@@ -180,23 +181,27 @@ class WorkOrderAdmin(admin.ModelAdmin):
 
     def get_inline_instances(self, request, obj=None):
         """
-        Mostrar los inlines de Correctivo SOLO cuando la OT es CORRECTIVE.
+        - En CREACIÓN (obj is None): mostrar SOLO tareas y repuestos.
+        - En EDICIÓN: si la OT es CORRECTIVE, mostrar además correctivo y conductores.
         """
         instances = super().get_inline_instances(request, obj)
-        if obj and obj.order_type != WorkOrder.OrderType.CORRECTIVE:
-            # Filtrar fuera los inlines de correctivo
-            filtered = []
-            for inst in instances:
-                if isinstance(inst, (WorkOrderCorrectiveInline, WorkOrderDriverAssignmentInline)):
+        filtered = []
+        for inst in instances:
+            is_corrective_inline = isinstance(inst, (WorkOrderCorrectiveInline, WorkOrderDriverAssignmentInline))
+            if obj is None:
+                # En "Add" ocultar los inlines de correctivo
+                if is_corrective_inline:
                     continue
-                filtered.append(inst)
-            return filtered
-        return instances
+            else:
+                # En "Change": solo mostrar correctivo si la OT es correctiva
+                if is_corrective_inline and obj.order_type != WorkOrder.OrderType.CORRECTIVE:
+                    continue
+            filtered.append(inst)
+        return filtered
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         """
-        Al abrir una OT existente, si es PREVENTIVA y el plan está vencido según el manual,
-        se muestra advertencia para que el coordinador lo tenga en cuenta.
+        Si es PREVENTIVA y el plan está vencido según el manual, mostrar advertencia.
         """
         if obj and obj.order_type == WorkOrder.OrderType.PREVENTIVE and obj.vehicle:
             vehicle = obj.vehicle
@@ -217,7 +222,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
                         next_task = t
                         break
                 if not next_task:
-                    # si se pasó del mayor, repetimos por el menor como periodo
                     first = plan.manual.tasks.order_by("km_interval").first()
                     period = (first.km_interval if first and first.km_interval else 10000)
                     next_due_km = base_km + ((delta // period) + 1) * period
