@@ -1,12 +1,12 @@
-"""Admin de Órdenes de Trabajo: UX diferenciada, evidencias integradas en la misma pantalla, roles y acciones rápidas (sin migraciones)."""
+"""Admin de Órdenes de Trabajo: UX diferenciada, evidencias integradas en la misma pantalla con “paracaídas” para evitar 500 en /add/."""
 
 from django.contrib import admin, messages
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 from django import forms
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.template.response import TemplateResponse
+from django.template import loader, TemplateDoesNotExist
 from django.db.models import Q
 import csv
 from datetime import datetime
@@ -24,7 +24,7 @@ from .models import (
     ManualTask,
     MaintenancePlan,
     ProbableCause,
-    WorkOrderTaskEvidence,
+    WorkOrderTaskEvidence,  # <- evidencia por trabajo (file upload)
 )
 
 # ---------------------------------------------------------------------
@@ -84,10 +84,6 @@ class WorkOrderAdminForm(forms.ModelForm):
 # ---------------------------------------------------------------------
 
 class WorkOrderEvidenceQuickForm(forms.ModelForm):
-    """
-    Form que se renderiza en la propia pantalla de la OT.
-    Permite elegir el Trabajo (de esta OT) + subir archivo + descripción.
-    """
     class Meta:
         model = WorkOrderTaskEvidence
         fields = ("task", "file", "description")
@@ -95,12 +91,10 @@ class WorkOrderEvidenceQuickForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.work_order = kwargs.pop("work_order", None)
         super().__init__(*args, **kwargs)
-        # Limitamos el combo de 'task' a los trabajos de ESTA OT:
         if self.work_order is not None:
             self.fields["task"].queryset = WorkOrderTask.objects.filter(
                 work_order=self.work_order
             ).select_related("work_order")
-        # UX: etiquetas más claras
         self.fields["task"].label = "Trabajo asociado"
         self.fields["file"].label = "Archivo (imagen/video/pdf, etc.)"
         self.fields["description"].label = "Descripción (opcional)"
@@ -152,10 +146,6 @@ class WorkOrderNoteInline(admin.TabularInline):
 
 
 class WorkOrderTaskInline(admin.TabularInline):
-    """
-    Inline de Trabajos dentro de la OT. No podemos anidar inlines de evidencias,
-    por eso abajo integramos un panel propio para subir/ver evidencias.
-    """
     model = WorkOrderTask
     extra = 0
     autocomplete_fields = ("category", "subcategory")
@@ -181,7 +171,7 @@ class WorkOrderPartInline(admin.TabularInline):
 
 
 # ---------------------------------------------------------------------
-# Filtro and Acciones
+# Filtro y Acciones
 # ---------------------------------------------------------------------
 
 class InWorkshopFilter(admin.SimpleListFilter):
@@ -330,9 +320,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
         WorkOrderPartInline,
     ]
 
-    # ----------------------------
-    # Column helpers
-    # ----------------------------
+    # -------- Helpers de columnas --------
     def vehicle_plate(self, obj):
         return getattr(obj.vehicle, "plate", "—")
     vehicle_plate.short_description = "Placa"
@@ -365,10 +353,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
         )
     status_badge.short_description = "Estado"
 
-    # ----------------------------
-    # Fieldsets
-    # ----------------------------
-
+    # -------- Fieldsets para toggle Preventivo/Correctivo --------
     BASE_FIELDS = (
         ("Información básica", {
             "classes": ("sigma-base",),
@@ -384,7 +369,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
             )
         }),
     )
-
     PREVENTIVE_EXTRA = (
         ("Plan preventivo (referencia)", {
             "classes": ("collapse", "sigma-preventive-only"),
@@ -392,7 +376,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
             "fields": ()
         }),
     )
-
     CORRECTIVE_EXTRA = (
         ("Diagnóstico", {
             "classes": ("sigma-corrective-only",),
@@ -432,9 +415,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
     class Media:
         js = ("workorders/admin_workorder.js",)
 
-    # ----------------------------
-    # URLs extra dentro del admin de WorkOrder
-    # ----------------------------
+    # -------- URLs extra para borrar evidencia --------
     def get_urls(self):
         urls = super().get_urls()
         my_urls = [
@@ -447,7 +428,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
         return my_urls + urls
 
     def delete_evidence(self, request, object_id, evid_id):
-        """Elimina una evidencia si pertenece a esta OT."""
         obj = self.get_object(request, object_id)
         if obj is None:
             messages.error(request, "OT no encontrada.")
@@ -464,31 +444,33 @@ class WorkOrderAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect(reverse("admin:workorders_workorder_change", args=[object_id]))
 
-    # ----------------------------
-    # Vista de change con panel de Evidencias integrado
-    # ----------------------------
+    # -------- Vista de change con “paracaídas” --------
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         """
-        Inyectamos:
-        - Form rápido de evidencia (limitado a trabajos de esta OT)
-        - Listado de evidencias agrupadas por trabajo
+        - En /add/ (object_id=None): devolvemos la vista estándar del admin (NO plantilla custom). -> Anti-500.
+        - En /change/: intentamos cargar plantilla custom. Si no existe, mostramos estándar (Anti-500).
         """
+        # /add/ -> sin plantilla custom
+        if not object_id:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+
+        # /change/ -> primero ejecutamos la vista base
         response = super().changeform_view(request, object_id, form_url, extra_context)
-        # Si la respuesta ya es redirect (guardado normal), la devolvemos.
         if isinstance(response, HttpResponseRedirect):
             return response
 
-        obj = None
-        if object_id:
-            obj = WorkOrder.objects.select_related("vehicle").filter(pk=object_id).first()
+        # Intentamos obtener el objeto
+        obj = WorkOrder.objects.filter(pk=object_id).first()
+        if not obj:
+            return response  # Fallback seguro
 
-        # Manejar envío del formulario rápido de evidencias:
-        if request.method == "POST" and "_upload_evidence" in request.POST and obj:
+        # Si se envió el mini-form de evidencias
+        if request.method == "POST" and "_upload_evidence" in request.POST:
             form = WorkOrderEvidenceQuickForm(
                 request.POST, request.FILES, work_order=obj
             )
             if form.is_valid():
-                ev = form.save()
+                form.save()
                 messages.success(request, "Evidencia cargada correctamente.")
                 return HttpResponseRedirect(
                     reverse("admin:workorders_workorder_change", args=[object_id])
@@ -496,33 +478,38 @@ class WorkOrderAdmin(admin.ModelAdmin):
             else:
                 messages.error(request, "Revisa el formulario de evidencia.")
 
-        # Construir contexto adicional:
-        quick_form = None
-        evidence_groups = []
-        if obj:
-            quick_form = WorkOrderEvidenceQuickForm(work_order=obj)
-            # Evidencias agrupadas por trabajo
-            tasks = (
-                WorkOrderTask.objects.filter(work_order=obj)
-                .select_related("work_order", "category", "subcategory")
-                .order_by("id")
-            )
-            evidences_by_task = (
-                WorkOrderTaskEvidence.objects.filter(task__work_order=obj)
-                .select_related("task")
-                .order_by("-uploaded_at")
-            )
-            # Agrupar:
-            mapping = {t.id: {"task": t, "evidences": []} for t in tasks}
-            for ev in evidences_by_task:
-                mapping.get(ev.task_id, {"task": None, "evidences": []})["evidences"].append(ev)
-            evidence_groups = [mapping[k] for k in mapping]
+        # Construimos contexto
+        quick_form = WorkOrderEvidenceQuickForm(work_order=obj)
+        tasks = (
+            WorkOrderTask.objects.filter(work_order=obj)
+            .select_related("work_order", "category", "subcategory")
+            .order_by("id")
+        )
+        evidences_by_task = (
+            WorkOrderTaskEvidence.objects.filter(task__work_order=obj)
+            .select_related("task")
+            .order_by("-uploaded_at")
+        )
+        mapping = {t.id: {"task": t, "evidences": []} for t in tasks}
+        for ev in evidences_by_task:
+            mapping.get(ev.task_id, {"task": None, "evidences": []})["evidences"].append(ev)
+        evidence_groups = [mapping[k] for k in mapping]
 
         ctx = response.context_data if hasattr(response, "context_data") else {}
         ctx = ctx or {}
         ctx["sigma_quick_evidence_form"] = quick_form
         ctx["sigma_evidence_groups"] = evidence_groups
-        # Render con plantilla personalizada
+
+        # Si la plantilla custom no existe, caemos al template estándar del admin (sin romper).
+        try:
+            loader.get_template("admin/workorders/workorder/change_form.html")
+        except TemplateDoesNotExist:
+            return TemplateResponse(
+                request,
+                self.change_form_template or "admin/change_form.html",
+                ctx,
+            )
+
         return TemplateResponse(
             request,
             "admin/workorders/workorder/change_form.html",
@@ -531,7 +518,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
 
 
 # ---------------------------------------------------------------------
-# Admin de Trabajos (con link a evidencias y gestión tradicional)
+# Otros modelos
 # ---------------------------------------------------------------------
 
 @admin.register(WorkOrderTask)
@@ -548,10 +535,6 @@ class WorkOrderTaskAdmin(admin.ModelAdmin):
         )
     evidencias_btn.short_description = "Evidencias"
 
-
-# ---------------------------------------------------------------------
-# Resto de modelos
-# ---------------------------------------------------------------------
 
 @admin.register(MaintenanceCategory)
 class MaintenanceCategoryAdmin(admin.ModelAdmin):
