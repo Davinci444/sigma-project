@@ -1,10 +1,13 @@
-"""Admin de Órdenes de Trabajo: UX diferenciada por tipo, inlines y lista potente."""
+"""Admin de Órdenes de Trabajo: UX diferenciada, evidencias integradas en la misma pantalla, roles y acciones rápidas (sin migraciones)."""
 
 from django.contrib import admin, messages
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django import forms
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
+from django.urls import path, reverse
+from django.template.response import TemplateResponse
+from django.db.models import Q
 import csv
 from datetime import datetime
 
@@ -21,12 +24,31 @@ from .models import (
     ManualTask,
     MaintenancePlan,
     ProbableCause,
-    # NUEVO:
     WorkOrderTaskEvidence,
 )
 
 # ---------------------------------------------------------------------
-# FORM de Admin (validación sin tocar modelos)
+# Roles (por grupo; sin migraciones)
+# ---------------------------------------------------------------------
+
+GERENCIA_GROUP_NAME = "Gerencia"
+COORDINACION_GROUP_NAME = "Coordinación de Zona"
+
+def es_gerencia(user) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name=GERENCIA_GROUP_NAME).exists()
+
+def es_coordinacion(user) -> bool:
+    if not user or not user.is_authenticated:
+        return False
+    return user.groups.filter(name=COORDINACION_GROUP_NAME).exists()
+
+
+# ---------------------------------------------------------------------
+# FORM principal de OT (validación sin tocar modelos)
 # ---------------------------------------------------------------------
 
 class WorkOrderAdminForm(forms.ModelForm):
@@ -37,24 +59,15 @@ class WorkOrderAdminForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         ot = cleaned.get("order_type")
-        # Campos correctivo
         pre_diag = cleaned.get("pre_diagnosis")
-        failure_origin = cleaned.get("failure_origin")
-        severity = cleaned.get("severity")
-        requires_approval = cleaned.get("requires_approval")
-        out_of_service = cleaned.get("out_of_service")
-        warranty_covered = cleaned.get("warranty_covered")
         probable_causes = cleaned.get("probable_causes")
 
-        # Reglas UX/Negocio (sin tocar DB):
         if ot == WorkOrder.OrderType.CORRECTIVE:
-            # Al menos uno entre pre_diagnóstico o probable_causes
             if not (pre_diag or (probable_causes and probable_causes.exists())):
                 raise forms.ValidationError(
                     "Para OT Correctiva debes diligenciar el Pre-diagnóstico o al menos una Causa Probable."
                 )
         else:
-            # Preventivo: limpiar campos correctivos si venían en POST (por seguridad)
             cleaned["pre_diagnosis"] = ""
             cleaned["failure_origin"] = None
             cleaned["severity"] = None
@@ -64,6 +77,33 @@ class WorkOrderAdminForm(forms.ModelForm):
             cleaned["probable_causes"] = []
 
         return cleaned
+
+
+# ---------------------------------------------------------------------
+# FORM rápido para subir evidencias dentro de la pantalla de la OT
+# ---------------------------------------------------------------------
+
+class WorkOrderEvidenceQuickForm(forms.ModelForm):
+    """
+    Form que se renderiza en la propia pantalla de la OT.
+    Permite elegir el Trabajo (de esta OT) + subir archivo + descripción.
+    """
+    class Meta:
+        model = WorkOrderTaskEvidence
+        fields = ("task", "file", "description")
+
+    def __init__(self, *args, **kwargs):
+        self.work_order = kwargs.pop("work_order", None)
+        super().__init__(*args, **kwargs)
+        # Limitamos el combo de 'task' a los trabajos de ESTA OT:
+        if self.work_order is not None:
+            self.fields["task"].queryset = WorkOrderTask.objects.filter(
+                work_order=self.work_order
+            ).select_related("work_order")
+        # UX: etiquetas más claras
+        self.fields["task"].label = "Trabajo asociado"
+        self.fields["file"].label = "Archivo (imagen/video/pdf, etc.)"
+        self.fields["description"].label = "Descripción (opcional)"
 
 
 # ---------------------------------------------------------------------
@@ -97,40 +137,24 @@ class WorkOrderNoteInline(admin.TabularInline):
     verbose_name = "Novedad / Comentario"
     verbose_name_plural = "Novedades / Comentarios"
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if es_gerencia(request.user):
+            return qs
+        return qs.filter(visibility=WorkOrderNote.Visibility.ALL)
 
-# >>> Evidencias por Trabajo (inline va en el admin de WorkOrderTask, NO dentro de OT)
-class WorkOrderTaskEvidenceInline(admin.TabularInline):
-    model = WorkOrderTaskEvidence
-    extra = 1
-    fields = ("file", "description", "preview", "uploaded_at")
-    readonly_fields = ("preview", "uploaded_at")
-
-    def preview(self, obj):
-        if not obj.pk or not obj.file:
-            return "—"
-        name = (obj.file.name or "").lower()
-        if name.endswith((".jpg", ".jpeg", ".png", ".gif")):
-            return format_html(
-                '<img src="{}" style="max-height:80px; border:1px solid #ccc;" />',
-                obj.file.url
-            )
-        if name.endswith((".mp4", ".mov", ".avi", ".webm")):
-            return format_html(
-                '<video src="{}" style="max-height:100px;" controls></video>',
-                obj.file.url
-            )
-        return format_html('<a href="{}" target="_blank">Descargar archivo</a>', obj.file.url)
-
-    preview.short_description = "Vista previa"
+    def formfield_for_choice_field(self, db_field, request, **kwargs):
+        if db_field.name == "visibility" and not es_gerencia(request.user):
+            kwargs["choices"] = [
+                (WorkOrderNote.Visibility.ALL, "Todos"),
+            ]
+        return super().formfield_for_choice_field(db_field, request, **kwargs)
 
 
 class WorkOrderTaskInline(admin.TabularInline):
     """
-    Importante: Django no permite inlines anidados.
-    Así que aquí NO podemos meter evidencias.
-
-    Solución: show_change_link=True para abrir el cambio del Trabajo,
-    donde sí tendremos el inline de evidencias.
+    Inline de Trabajos dentro de la OT. No podemos anidar inlines de evidencias,
+    por eso abajo integramos un panel propio para subir/ver evidencias.
     """
     model = WorkOrderTask
     extra = 0
@@ -142,21 +166,9 @@ class WorkOrderTaskInline(admin.TabularInline):
         "hours_spent",
         "is_external",
         "labor_rate",
-        "ver_evidencias",   # columna de enlace rápido
     )
-    readonly_fields = ("ver_evidencias",)
-    show_change_link = True
     verbose_name = "Trabajo"
     verbose_name_plural = "Trabajos"
-
-    def ver_evidencias(self, obj):
-        if not obj.pk:
-            return "—"
-        return format_html(
-            '<a class="button" href="/admin/workorders/workordertask/{}/change/" target="_blank">➜ evidencias</a>',
-            obj.pk,
-        )
-    ver_evidencias.short_description = "Evidencias"
 
 
 class WorkOrderPartInline(admin.TabularInline):
@@ -169,7 +181,7 @@ class WorkOrderPartInline(admin.TabularInline):
 
 
 # ---------------------------------------------------------------------
-# FILTRO personalizado
+# Filtro and Acciones
 # ---------------------------------------------------------------------
 
 class InWorkshopFilter(admin.SimpleListFilter):
@@ -180,7 +192,6 @@ class InWorkshopFilter(admin.SimpleListFilter):
         return (("yes", "Sí"), ("no", "No"))
 
     def queryset(self, request, queryset):
-        from django.db.models import Q
         if self.value() == "yes":
             return queryset.filter(
                 Q(check_in_at__isnull=False)
@@ -202,14 +213,7 @@ class InWorkshopFilter(admin.SimpleListFilter):
         return queryset
 
 
-# ---------------------------------------------------------------------
-# ACCIONES (sin migraciones): Exportar CSV rápido
-# ---------------------------------------------------------------------
-
 def exportar_ot_csv(modeladmin, request, queryset):
-    """
-    Exporta un CSV con campos clave para análisis rápido.
-    """
     filename = f"ordenes_trabajo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     resp = HttpResponse(content_type="text/csv; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -251,22 +255,42 @@ def exportar_ot_csv(modeladmin, request, queryset):
 exportar_ot_csv.short_description = "Exportar selección a CSV"
 
 
+def marcar_en_recepcion(modeladmin, request, queryset):
+    updated = queryset.update(status=WorkOrder.OrderStatus.IN_RECEPTION)
+    messages.success(request, f"{updated} OT(s) marcadas En Recepción.")
+marcar_en_recepcion.short_description = "Marcar como En Recepción"
+
+def marcar_en_servicio(modeladmin, request, queryset):
+    updated = queryset.update(status=WorkOrder.OrderStatus.IN_SERVICE)
+    messages.success(request, f"{updated} OT(s) marcadas En Servicio.")
+marcar_en_servicio.short_description = "Marcar como En Servicio"
+
+def marcar_completada(modeladmin, request, queryset):
+    updated = queryset.update(status=WorkOrder.OrderStatus.COMPLETED)
+    messages.success(request, f"{updated} OT(s) marcadas Completadas.")
+marcar_completada.short_description = "Marcar como Completada"
+
+def marcar_verificada(modeladmin, request, queryset):
+    updated = queryset.update(status=WorkOrder.OrderStatus.VERIFIED)
+    messages.success(request, f"{updated} OT(s) marcadas Verificadas.")
+marcar_verificada.short_description = "Marcar como Verificada"
+
+
 # ---------------------------------------------------------------------
-# ADMIN PRINCIPAL
+# ADMIN WorkOrder
 # ---------------------------------------------------------------------
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    """
-    - Formulario: se muestran/ocultan secciones según 'order_type' (JS).
-    - Inlines: notas, adjuntos, conductores, trabajos y repuestos.
-    - Lista: columnas clave y filtros útiles.
-    - Acción: exportar CSV.
-    """
     form = WorkOrderAdminForm
-    actions = [exportar_ot_csv]
+    actions = [
+        exportar_ot_csv,
+        marcar_en_recepcion,
+        marcar_en_servicio,
+        marcar_completada,
+        marcar_verificada,
+    ]
 
-    # Lista
     list_display = (
         "id",
         "vehicle_plate",
@@ -294,24 +318,21 @@ class WorkOrderAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
 
-    # Campos base
     readonly_fields = ("created_at",)
     autocomplete_fields = ("vehicle", "assigned_technician")
     save_on_top = True
 
-    # Inlines
     inlines = [
         WorkOrderDriverInline,
         WorkOrderAttachmentInline,
         WorkOrderNoteInline,
-        WorkOrderTaskInline,   # aquí NO hay evidencias (las verás al abrir el trabajo)
+        WorkOrderTaskInline,
         WorkOrderPartInline,
     ]
 
     # ----------------------------
-    # Helpers de columnas
+    # Column helpers
     # ----------------------------
-
     def vehicle_plate(self, obj):
         return getattr(obj.vehicle, "plate", "—")
     vehicle_plate.short_description = "Placa"
@@ -345,7 +366,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
     status_badge.short_description = "Estado"
 
     # ----------------------------
-    # Fieldsets dinámicos (añadimos clases para el JS)
+    # Fieldsets
     # ----------------------------
 
     BASE_FIELDS = (
@@ -408,15 +429,109 @@ class WorkOrderAdmin(admin.ModelAdmin):
                     "requires_approval", "warranty_covered", "probable_causes")
         return ()
 
-    # ----------------------------
-    # Cargar JS/CSS propios (solo admin de WorkOrder)
-    # ----------------------------
     class Media:
         js = ("workorders/admin_workorder.js",)
 
+    # ----------------------------
+    # URLs extra dentro del admin de WorkOrder
+    # ----------------------------
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path(
+                "<path:object_id>/delete-evidence/<int:evid_id>/",
+                self.admin_site.admin_view(self.delete_evidence),
+                name="workorders_workorder_delete_evidence",
+            ),
+        ]
+        return my_urls + urls
+
+    def delete_evidence(self, request, object_id, evid_id):
+        """Elimina una evidencia si pertenece a esta OT."""
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            messages.error(request, "OT no encontrada.")
+            return HttpResponseRedirect(reverse("admin:workorders_workorder_changelist"))
+
+        ev = WorkOrderTaskEvidence.objects.filter(
+            pk=evid_id, task__work_order=obj
+        ).first()
+        if not ev:
+            messages.error(request, "Evidencia no encontrada o no pertenece a esta OT.")
+        else:
+            ev.delete()
+            messages.success(request, "Evidencia eliminada.")
+
+        return HttpResponseRedirect(reverse("admin:workorders_workorder_change", args=[object_id]))
+
+    # ----------------------------
+    # Vista de change con panel de Evidencias integrado
+    # ----------------------------
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        """
+        Inyectamos:
+        - Form rápido de evidencia (limitado a trabajos de esta OT)
+        - Listado de evidencias agrupadas por trabajo
+        """
+        response = super().changeform_view(request, object_id, form_url, extra_context)
+        # Si la respuesta ya es redirect (guardado normal), la devolvemos.
+        if isinstance(response, HttpResponseRedirect):
+            return response
+
+        obj = None
+        if object_id:
+            obj = WorkOrder.objects.select_related("vehicle").filter(pk=object_id).first()
+
+        # Manejar envío del formulario rápido de evidencias:
+        if request.method == "POST" and "_upload_evidence" in request.POST and obj:
+            form = WorkOrderEvidenceQuickForm(
+                request.POST, request.FILES, work_order=obj
+            )
+            if form.is_valid():
+                ev = form.save()
+                messages.success(request, "Evidencia cargada correctamente.")
+                return HttpResponseRedirect(
+                    reverse("admin:workorders_workorder_change", args=[object_id])
+                )
+            else:
+                messages.error(request, "Revisa el formulario de evidencia.")
+
+        # Construir contexto adicional:
+        quick_form = None
+        evidence_groups = []
+        if obj:
+            quick_form = WorkOrderEvidenceQuickForm(work_order=obj)
+            # Evidencias agrupadas por trabajo
+            tasks = (
+                WorkOrderTask.objects.filter(work_order=obj)
+                .select_related("work_order", "category", "subcategory")
+                .order_by("id")
+            )
+            evidences_by_task = (
+                WorkOrderTaskEvidence.objects.filter(task__work_order=obj)
+                .select_related("task")
+                .order_by("-uploaded_at")
+            )
+            # Agrupar:
+            mapping = {t.id: {"task": t, "evidences": []} for t in tasks}
+            for ev in evidences_by_task:
+                mapping.get(ev.task_id, {"task": None, "evidences": []})["evidences"].append(ev)
+            evidence_groups = [mapping[k] for k in mapping]
+
+        ctx = response.context_data if hasattr(response, "context_data") else {}
+        ctx = ctx or {}
+        ctx["sigma_quick_evidence_form"] = quick_form
+        ctx["sigma_evidence_groups"] = evidence_groups
+        # Render con plantilla personalizada
+        return TemplateResponse(
+            request,
+            "admin/workorders/workorder/change_form.html",
+            ctx,
+        )
+
 
 # ---------------------------------------------------------------------
-# Admin de TRABAJOS con Evidencias (aquí sí verás y subirás archivos)
+# Admin de Trabajos (con link a evidencias y gestión tradicional)
 # ---------------------------------------------------------------------
 
 @admin.register(WorkOrderTask)
@@ -425,10 +540,8 @@ class WorkOrderTaskAdmin(admin.ModelAdmin):
     search_fields = ("description", "work_order__id", "work_order__vehicle__plate")
     list_filter = ("is_external", "category", "subcategory")
     autocomplete_fields = ("work_order", "category", "subcategory")
-    inlines = [WorkOrderTaskEvidenceInline]
 
     def evidencias_btn(self, obj):
-        # Botón redundante para descargar/ver desde lista de trabajos
         return format_html(
             '<a class="button" href="/admin/workorders/workordertaskevidence/?task__id__exact={}">Ver evidencias</a>',
             obj.pk
@@ -437,7 +550,7 @@ class WorkOrderTaskAdmin(admin.ModelAdmin):
 
 
 # ---------------------------------------------------------------------
-# Otros modelos del módulo (registro simple para mantener utilidades)
+# Resto de modelos
 # ---------------------------------------------------------------------
 
 @admin.register(MaintenanceCategory)
@@ -480,6 +593,42 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
 class ProbableCauseAdmin(admin.ModelAdmin):
     search_fields = ("name", "description")
     list_display = ("name",)
+
+
+@admin.register(WorkOrderPart)
+class WorkOrderPartAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("work_order", "part")
+    list_display = ("work_order", "part", "quantity", "cost_at_moment")
+    search_fields = ("work_order__vehicle__plate", "part__name")
+    list_filter = ("part",)
+
+
+@admin.register(WorkOrderAttachment)
+class WorkOrderAttachmentAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("work_order",)
+    list_display = ("work_order", "url", "created_at")
+    search_fields = ("work_order__vehicle__plate", "url")
+    date_hierarchy = "created_at"
+
+
+@admin.register(WorkOrderNote)
+class WorkOrderNoteAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("work_order", "author")
+    list_display = ("work_order", "visibility", "short_text", "author", "created_at")
+    search_fields = ("work_order__vehicle__plate", "text")
+    list_filter = ("visibility",)
+    date_hierarchy = "created_at"
+
+    def short_text(self, obj):
+        return (obj.text[:70] + "…") if len(obj.text) > 70 else obj.text
+    short_text.short_description = "Comentario"
+
+
+@admin.register(WorkOrderDriver)
+class WorkOrderDriverAdmin(admin.ModelAdmin):
+    autocomplete_fields = ("work_order", "driver")
+    list_display = ("work_order", "driver", "responsibility_percent")
+    search_fields = ("work_order__vehicle__plate", "driver__full_name")
 
 
 @admin.register(WorkOrderTaskEvidence)
