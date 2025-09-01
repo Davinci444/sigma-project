@@ -51,15 +51,14 @@ def workorder_unified(request, pk=None):
 
     # Determinar qué formulario usar (preventivo o correctivo)
     form_cls = PreventiveWorkOrderForm
-    post_type = request.POST.get("order_type", "") if request.method == "POST" else ""
-    if post_type.lower().startswith("corr"):
-        form_cls = CorrectiveWorkOrderForm
-    elif ot and str(ot.order_type).upper().startswith("CORRECT"):
+    if ot and str(ot.order_type).upper().startswith("CORRECT"):
         form_cls = CorrectiveWorkOrderForm
     else:
         t = request.GET.get("type", "")
         if t.lower().startswith("corr"):
             form_cls = CorrectiveWorkOrderForm
+
+    is_corrective = (form_cls is CorrectiveWorkOrderForm)
 
     # ---- Quick-Create (crear sin salir) ----
     if request.method == "POST" and request.POST.get("qc_target"):
@@ -172,6 +171,12 @@ def workorder_unified(request, pk=None):
         "dynamic_dt_bfs": dynamic_dt_bfs,  # ← usar esto en la plantilla
         "title": ("Editar OT" if ot else "Nueva OT"),
         "manual": manual,
+        "show_corrective": is_corrective,
+        "order_type_label": (
+            WorkOrder.OrderType.CORRECTIVE.label
+            if is_corrective
+            else WorkOrder.OrderType.PREVENTIVE.label
+        ),
         # Quick-create forms (si existen)
         "qc_vehicle": QuickCreateVehicleForm() if QuickCreateVehicleForm._meta.fields else None,
         "qc_driver": QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None,
