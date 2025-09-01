@@ -1,8 +1,20 @@
 # workorders/forms.py
 from django import forms
 from django.forms import inlineformset_factory
-from .models import WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderDriver, WorkOrderNote
+from django.core.exceptions import FieldDoesNotExist
+
+from .models import (
+    WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderDriver, WorkOrderNote
+)
 from users.models import Driver
+
+# ---------- util ----------
+def field_exists(model, name: str) -> bool:
+    try:
+        model._meta.get_field(name)
+        return True
+    except FieldDoesNotExist:
+        return False
 
 # ---------- Form principal unificado ----------
 class WorkOrderUnifiedForm(forms.ModelForm):
@@ -31,7 +43,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         choices=WorkOrder.Severity.choices, required=False
     )
 
-    # Nota rápida y causas probables (se guardan como Novedades)
+    # Nota rápida y causas probables -> se registran como Novedades
     first_comment = forms.CharField(
         label="Comentario inicial (opcional)",
         required=False, widget=forms.Textarea(attrs={'rows':2})
@@ -41,6 +53,10 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         required=False, widget=forms.Textarea(attrs={'rows':2})
     )
 
+    # Campos de fecha/hora "reales" (los agrego dinámicamente si existen en el modelo)
+    # Ejemplos comunes: actual_start / actual_end / received_at / delivered_at / started_at / finished_at
+    dynamic_datetime_fields = ("actual_start", "actual_end", "received_at", "delivered_at", "started_at", "finished_at")
+
     class Meta:
         model = WorkOrder
         fields = [
@@ -48,7 +64,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
             'status', 'priority',
             'scheduled_start', 'scheduled_end',
             'odometer_at_service',
-            # los 3 de correctivo arriba se muestran/ocultan por JS
+            # los campos correctivos los manejo aparte
         ]
         widgets = {
             'scheduled_start': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
@@ -56,10 +72,23 @@ class WorkOrderUnifiedForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'rows':3}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Agregar dinámicamente campos datetime reales si existen en el modelo
+        for fname in self.dynamic_datetime_fields:
+            if field_exists(WorkOrder, fname):
+                self.fields[fname] = forms.DateTimeInput()
+                self.fields[fname] = forms.DateTimeField(
+                    required=False,
+                    widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+                    label=fname.replace("_", " ").capitalize()
+                )
+
     def save(self, user=None, commit=True):
         instance = super().save(commit=commit)
 
-        # Conductor
+        # Conductor / responsabilidad
         driver = self.cleaned_data.get('driver')
         resp = self.cleaned_data.get('driver_responsibility')
         if driver:
@@ -75,27 +104,32 @@ class WorkOrderUnifiedForm(forms.ModelForm):
                 work_order=instance, text=comment, author=user
             )
 
-        # Causas probables -> nota
+        # Causas probables -> novedad
         causas = self.cleaned_data.get('probable_causes')
-        if causas:
+        if causas and self.cleaned_data.get('order_type') == WorkOrder.OrderType.CORRECTIVE:
             WorkOrderNote.objects.create(
                 work_order=instance, text=f"Causas probables: {causas}", author=user
             )
 
-        # Si es Correctivo, guardamos los 3 campos; si no, los limpiamos
+        # Correctivo: guarda 3 campos
         if self.cleaned_data.get('order_type') == WorkOrder.OrderType.CORRECTIVE:
             instance.pre_diagnosis = self.cleaned_data.get('pre_diagnosis')
             instance.failure_origin = self.cleaned_data.get('failure_origin') or instance.failure_origin
             instance.severity = self.cleaned_data.get('severity') or instance.severity
             instance.save(update_fields=['pre_diagnosis','failure_origin','severity'])
         else:
-            # para evitar "ruido" en preventivo
-            cleared = False
+            # limpiar pre_diagnóstico en preventivo para no contaminar datos
             if hasattr(instance, 'pre_diagnosis') and instance.pre_diagnosis:
                 instance.pre_diagnosis = ""
-                cleared = True
-            if cleared:
                 instance.save(update_fields=['pre_diagnosis'])
+
+        # Guardar campos datetime reales si existieran
+        for fname in self.dynamic_datetime_fields:
+            if fname in self.fields:
+                val = self.cleaned_data.get(fname)
+                setattr(instance, fname, val)
+        if any(fname in self.fields for fname in self.dynamic_datetime_fields):
+            instance.save()
 
         return instance
 
@@ -112,7 +146,6 @@ EvidenceURLFormSet = inlineformset_factory(
     widgets={'url': forms.URLInput(attrs={'placeholder': 'https://(Drive/Dropbox/etc.)'})}
 )
 
-# ---------- Nota rápida en "Novedades" ----------
 class WorkOrderNoteForm(forms.ModelForm):
     class Meta:
         model = WorkOrderNote

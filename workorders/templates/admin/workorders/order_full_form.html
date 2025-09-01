@@ -12,7 +12,7 @@
     .muted{color:var(--muted)}
     .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 20px rgba(0,0,0,.2);margin-bottom:16px}
     .grid{display:grid;gap:12px}
-    @media(min-width:920px){.cols-2{grid-template-columns:1fr 1fr}.cols-3{grid-template-columns:1fr 1fr 1fr}}
+    @media(min-width:980px){.cols-2{grid-template-columns:1fr 1fr}.cols-3{grid-template-columns:1fr 1fr 1fr}}
     label{display:block;margin:.5rem 0 .25rem;font-weight:600}
     input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #273253;background:#0d1730;color:var(--text)}
     table{width:100%;border-collapse:collapse;background:var(--table);border-radius:12px;overflow:hidden}
@@ -28,7 +28,7 @@
 <body>
   <div class="wrap">
     <h1>{{ title }}{% if ot %} — OT #{{ ot.id }} — {{ ot.vehicle }}{% endif %}</h1>
-    <p class="muted">Todo en un solo lugar: datos base, conductor, (correctivo) prediagnóstico, tareas, evidencias y novedades.</p>
+    <p class="muted">Orden de Trabajo unificada: conductor, fechas, (correctivo) diagnóstico, tareas, evidencias y novedades, todo aquí.</p>
 
     <form method="post">
       {% csrf_token %}
@@ -56,13 +56,36 @@
           {{ form.scheduled_start }}
         </div>
         <div>
-          <label>Fin programado</label>
+          <label>Salida estimada</label>
           {{ form.scheduled_end }}
         </div>
         <div>
           <label>Odómetro al recibir</label>
           {{ form.odometer_at_service }}
         </div>
+
+        {% if form.fields.actual_start %}
+        <div>
+          <label>Entrada real</label>
+          {{ form.actual_start }}
+        </div>
+        {% endif %}
+        {% if form.fields.actual_end %}
+        <div>
+          <label>Salida real</label>
+          {{ form.actual_end }}
+        </div>
+        {% endif %}
+
+        {% for fname in datetime_real_fields %}
+          {% if fname != 'actual_start' and fname != 'actual_end' %}
+          <div>
+            <label>{{ fname|capfirst|replace:"_" " " }}</label>
+            {{ form[fname] }}
+          </div>
+          {% endif %}
+        {% endfor %}
+
         <div class="cols-2" style="grid-column:1/-1">
           <label>Descripción del problema / trabajo</label>
           {{ form.description }}
@@ -98,7 +121,7 @@
             {{ form.pre_diagnosis }}
           </div>
           <div style="grid-column:1/-1">
-            <label>Causas probables (se guarda como novedad)</label>
+            <label>Causas probables (se registra como novedad)</label>
             {{ form.probable_causes }}
           </div>
         </div>
@@ -170,10 +193,9 @@
         </div>
       </div>
 
-      <!-- Guardar inferior -->
       <div class="actions">
         <button class="btn" type="submit">Guardar</button>
-        {% if ot %}<a class="link" href="/admin/workorders/workorder/{{ ot.id }}/change/">Ver en Admin</a>{% endif %}
+        {% if ot %}<a class="link" href="/admin/">Panel</a>{% endif %}
       </div>
     </form>
   </div>

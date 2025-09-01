@@ -1,99 +1,45 @@
-"""Admin MINIMAL-ULTRA para aislar el 500 en 'Añadir OT'."""
-
+# workorders/admin.py
 from django.contrib import admin
-from .models import (
-    WorkOrder,
-    WorkOrderTask,
-    WorkOrderPart,
-    WorkOrderNote,
-    WorkOrderAttachment,
-    WorkOrderDriver,
-    MaintenanceCategory,
-    MaintenanceSubcategory,
-    MaintenanceManual,
-    ManualTask,
-    MaintenancePlan,
-    ProbableCause,
-)
+from django.shortcuts import redirect
+from .models import WorkOrder, WorkOrderNote
 
+# --- Admin de OT: redirige a la IU unificada ---
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    fields = (
-        "order_type",
-        "vehicle",
-        "description",
-        "priority",
-        "status",
-        "created_at",
-    )
-    readonly_fields = ("created_at",)
-    raw_id_fields = ("vehicle",)
-    list_display = ("id", "vehicle", "order_type", "status", "priority", "created_at")
-    list_select_related = ("vehicle",)
-    search_fields = ("id", "vehicle__plate", "description")
+    list_display = ("id", "vehicle", "order_type", "status", "priority", "scheduled_start", "scheduled_end")
+    search_fields = ("id",)
     list_filter = ("order_type", "status", "priority")
-    date_hierarchy = "created_at"
-    ordering = ("-created_at",)
 
-@admin.register(MaintenanceCategory)
-class MaintenanceCategoryAdmin(admin.ModelAdmin):
-    search_fields = ("name",)
-    list_display = ("name",)
+    # NO raw_id_fields => no "lupa" en admin (igual redirigimos)
+    raw_id_fields = ()
 
-@admin.register(MaintenanceSubcategory)
-class MaintenanceSubcategoryAdmin(admin.ModelAdmin):
-    raw_id_fields = ("category",)
-    list_display = ("name", "category")
-    search_fields = ("name", "category__name")
+    def add_view(self, request, form_url='', extra_context=None):
+        return redirect("/api/workorders/workorders/new/")
 
-@admin.register(MaintenanceManual)
-class MaintenanceManualAdmin(admin.ModelAdmin):
-    list_display = ("name", "fuel_type")
-    list_filter = ("fuel_type",)
-    search_fields = ("name",)
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        return redirect(f"/api/workorders/workorders/{object_id}/edit/")
 
-@admin.register(ManualTask)
-class ManualTaskAdmin(admin.ModelAdmin):
-    raw_id_fields = ("manual",)
-    list_display = ("manual", "km_interval", "description")
-    list_filter = ("manual",)
-    search_fields = ("description",)
-
-@admin.register(MaintenancePlan)
-class MaintenancePlanAdmin(admin.ModelAdmin):
-    raw_id_fields = ("vehicle", "manual")
-    list_display = ("vehicle", "manual", "is_active", "last_service_km", "last_service_date")
-    list_filter = ("is_active", "manual__fuel_type")
-    search_fields = ("vehicle__plate",)
-
-@admin.register(ProbableCause)
-class ProbableCauseAdmin(admin.ModelAdmin):
-    search_fields = ("name", "description")
-    list_display = ("name",)
-
-@admin.register(WorkOrderTask)
-class WorkOrderTaskAdmin(admin.ModelAdmin):
-    raw_id_fields = ("work_order", "category", "subcategory")
-    list_display = ("work_order", "category", "subcategory", "hours_spent", "is_external")
-
-@admin.register(WorkOrderPart)
-class WorkOrderPartAdmin(admin.ModelAdmin):
-    raw_id_fields = ("work_order", "part")
-    list_display = ("work_order", "part", "quantity", "cost_at_moment")
-
-@admin.register(WorkOrderAttachment)
-class WorkOrderAttachmentAdmin(admin.ModelAdmin):
-    raw_id_fields = ("work_order",)
-    list_display = ("work_order", "url", "description", "created_at")
-    readonly_fields = ("created_at",)
-
+# --- Novedades visibles en admin (opcional) ---
 @admin.register(WorkOrderNote)
 class WorkOrderNoteAdmin(admin.ModelAdmin):
-    raw_id_fields = ("work_order", "author")
-    list_display = ("work_order", "visibility", "author", "created_at")
-    readonly_fields = ("created_at",)
+    list_display = ("id", "work_order", "author", "created_at")
+    search_fields = ("work_order__id", "text")
 
-@admin.register(WorkOrderDriver)
-class WorkOrderDriverAdmin(admin.ModelAdmin):
-    raw_id_fields = ("work_order", "driver")
-    list_display = ("work_order", "driver", "responsibility_percent")
+# --- Ocultar modelos que no quieres tocar desde admin ---
+def _try_unregister(model_label):
+    try:
+        from django.apps import apps
+        m = apps.get_model(*model_label.split("."))
+        admin.site.unregister(m)
+    except Exception:
+        pass
+
+# Si existieran y estaban registrados:
+for dotted in [
+    "workorders.WorkOrderTask",
+    "workorders.WorkOrderAttachment",
+    "workorders.WorkOrderDriver",
+    "workorders.WorkOrderPart",
+    # agrega más si fuera necesario ocultarlos del admin
+]:
+    _try_unregister(dotted)

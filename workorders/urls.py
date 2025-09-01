@@ -16,11 +16,11 @@ router.register(r"parts", WorkOrderPartViewSet)
 urlpatterns = [
     path("", include(router.urls)),
 
-    # --------- Interfaz unificada ---------
+    # Interfaz unificada (la que usarás siempre)
     path("workorders/new/", workorder_unified, name="workorders_unified_new"),
     path("workorders/<int:pk>/edit/", workorder_unified, name="workorders_unified_edit"),
 
-    # --------- Compatibilidad con rutas antiguas (redirigen) ---------
+    # Compatibilidad antiguas (redirigen)
     path("new/preventive/", new_preventive, name="workorders_new_preventive"),
     path("new/corrective/", new_corrective, name="workorders_new_corrective"),
     path("<int:pk>/tasks/", edit_tasks, name="workorders_edit_tasks"),
