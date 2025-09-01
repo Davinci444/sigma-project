@@ -2,7 +2,13 @@
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import reverse
-from .models import WorkOrder, WorkOrderNote
+
+from .models import (
+    MaintenanceManual,
+    MaintenancePlan,
+    WorkOrder,
+    WorkOrderNote,
+)
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
@@ -24,36 +30,30 @@ class WorkOrderNoteAdmin(admin.ModelAdmin):
     list_select_related = ("work_order", "author") if hasattr(WorkOrderNote, "author") else ("work_order",)
 
 
-# --- Registro de Manuales de Mantenimiento (solo lectura) ---
-from django.utils.html import format_html
+# --- Registro de Manuales y Planes de Mantenimiento ---
 
-try:
-    from .models import MaintenancePlan
-except Exception:
-    MaintenancePlan = None
 
-if MaintenancePlan:
-    @admin.register(MaintenancePlan)
-    class MaintenancePlanAdmin(admin.ModelAdmin):
-        # Ajusta columnas según tus campos reales:
-        list_display = (
-            "id",
-            "name",                   # nombre del manual/plan
-            "fuel_type",              # GASOLINA / DIESEL (si existe)
-            "vehicle_type",           # opcional: tipo de vehículo (si existe)
-            "interval_km",            # km entre servicios (si existe)
-            "interval_days",          # días entre servicios (si existe)
-            "is_active",              # activo/inactivo (si existe)
-        )
-        search_fields = ("name",)
-        list_filter = ("fuel_type", "is_active")  # quita/añade según tus campos
-        ordering = ("name",)
+@admin.register(MaintenanceManual)
+class MaintenanceManualAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "fuel_type")
+    search_fields = ("name",)
+    list_filter = ("fuel_type",)
 
-        # Para no romper nada, lo dejo editable por defecto.
-        # Si quieres que sea solo lectura, descomenta esto:
-        # def has_change_permission(self, request, obj=None):
-        #     return False
-        # def has_add_permission(self, request):
-        #     return False
-        # def has_delete_permission(self, request, obj=None):
-        #     return False
+
+@admin.register(MaintenancePlan)
+class MaintenancePlanAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "vehicle",
+        "manual",
+        "last_service_km",
+        "last_service_date",
+        "is_active",
+    )
+    search_fields = (
+        "vehicle__plate",
+        "vehicle__vin",
+        "manual__name",
+    )
+    list_filter = ("manual", "is_active")
+    list_select_related = ("vehicle", "manual")
