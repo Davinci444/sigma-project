@@ -52,6 +52,18 @@
         </ul>
     </div>
 
+    <!-- Bloque de Manuales de Mantenimiento -->
+    <div style="padding: 20px; background: #fff8e1; border: 1px solid #ffe082; margin-bottom: 20px; border-radius: 8px;">
+        <h2>Manuales de Mantenimiento</h2>
+        <ul style="list-style-type: none; padding-left: 0;">
+            <li>
+                <a href="{% url 'admin:workorders_maintenancemanual_changelist' %}" class="button" style="padding: 10px 15px; font-size: 14px;">
+                    Ver Manuales de Mantenimiento
+                </a>
+            </li>
+        </ul>
+    </div>
+
     <!-- Contenido original del admin (listas de modelos) -->
     {{ block.super }}
 </div>

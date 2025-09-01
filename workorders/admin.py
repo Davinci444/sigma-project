@@ -2,7 +2,12 @@
 from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import reverse
-from .models import WorkOrder, WorkOrderNote
+from .models import (
+    WorkOrder,
+    WorkOrderNote,
+    MaintenanceManual,
+    ManualTask,
+)
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
@@ -24,7 +29,24 @@ class WorkOrderNoteAdmin(admin.ModelAdmin):
     list_select_related = ("work_order", "author") if hasattr(WorkOrderNote, "author") else ("work_order",)
 
 
-# --- Registro de Manuales de Mantenimiento (solo lectura) ---
+# --- Registro de Manuales de Mantenimiento ---
+
+
+@admin.register(MaintenanceManual)
+class MaintenanceManualAdmin(admin.ModelAdmin):
+    list_display = ("name", "fuel_type")
+    search_fields = ("name",)
+    list_filter = ("fuel_type",)
+
+
+@admin.register(ManualTask)
+class ManualTaskAdmin(admin.ModelAdmin):
+    list_display = ("manual", "km_interval", "description")
+    search_fields = ("manual__name", "description")
+    list_filter = ("manual",)
+
+
+# --- Registro de Planes de Mantenimiento (solo lectura) ---
 from django.utils.html import format_html
 
 try:
