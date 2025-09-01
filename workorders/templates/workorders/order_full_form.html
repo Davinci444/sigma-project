@@ -167,7 +167,7 @@
           </div>
 
           {{ task_fs.management_form }}
-          <table>
+          <table id="tasks-table">
           <thead>
             <tr><th>Categoría</th><th>Subcategoría</th><th>Descripción</th><th>Horas</th><th>Tercero</th><th>Tarifa</th><th>Eliminar</th></tr>
           </thead>
@@ -185,6 +185,20 @@
           {% endfor %}
         </tbody>
         </table>
+        <div class="actions" style="margin-top:10px;">
+          <button type="button" class="btn" id="add-task-btn">Agregar tarea</button>
+        </div>
+        <template id="task-empty-form">
+          <tr>
+            <td>{{ task_fs.empty_form.category }}</td>
+            <td>{{ task_fs.empty_form.subcategory }}</td>
+            <td>{{ task_fs.empty_form.description }}</td>
+            <td>{{ task_fs.empty_form.hours_spent }}</td>
+            <td>{{ task_fs.empty_form.is_external }}</td>
+            <td>{{ task_fs.empty_form.labor_rate }}</td>
+            <td>{{ task_fs.empty_form.DELETE }}</td>
+          </tr>
+        </template>
       </div>
 
       <!-- Novedades -->
@@ -237,6 +251,20 @@
       document.addEventListener("change", function(e){
         if(e.target && e.target.id === "id_order_type") toggleCorrective();
       });
-      document.addEventListener("DOMContentLoaded", toggleCorrective);
+      document.addEventListener("DOMContentLoaded", function(){
+        toggleCorrective();
+        const addBtn = document.getElementById("add-task-btn");
+        const totalForms = document.getElementById("id_tasks-TOTAL_FORMS");
+        const tableBody = document.querySelector("#tasks-table tbody");
+        const tmpl = document.getElementById("task-empty-form");
+        if(addBtn && totalForms && tableBody && tmpl){
+          addBtn.addEventListener("click", function(){
+            const idx = parseInt(totalForms.value, 10);
+            const newRowHtml = tmpl.innerHTML.replace(/__prefix__/g, idx);
+            tableBody.insertAdjacentHTML('beforeend', newRowHtml);
+            totalForms.value = idx + 1;
+          });
+        }
+      });
 </script>
 {% endblock %}
