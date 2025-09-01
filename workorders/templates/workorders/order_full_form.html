@@ -150,25 +150,24 @@
             {% csrf_token %}
             <input type="hidden" name="qc_target" value="subcategory">
             <input type="text" name="name" placeholder="Nueva subcategoría" required>
-            {% if 'category' in qc_subcategory.fields %}
-              <select name="category" required>
-                {% for f in task_fs.forms %}
-                  {% if f.fields.category.choices %}
-                    {% for val,txt in f.fields.category.choices %}
-                      {% if val %}<option value="{{ val }}">{{ txt }}</option>{% endif %}
-                    {% endfor %}
-                    {% break %}
-                  {% endif %}
-                {% endfor %}
-              </select>
+              {% if 'category' in qc_subcategory.fields %}
+                <select name="category" required>
+                  {% for f in task_fs.forms|slice:":1" %}
+                    {% if f.fields.category.choices %}
+                      {% for val,txt in f.fields.category.choices %}
+                        {% if val %}<option value="{{ val }}">{{ txt }}</option>{% endif %}
+                      {% endfor %}
+                    {% endif %}
+                  {% endfor %}
+                </select>
+              {% endif %}
+              <button class="btn" type="submit">Crear subcategoría</button>
+            </form>
             {% endif %}
-            <button class="btn" type="submit">Crear subcategoría</button>
-          </form>
-          {% endif %}
-        </div>
+          </div>
 
-        {{ task_fs.management_form }}
-        <table>
+          {{ task_fs.management_form }}
+          <table>
           <thead>
             <tr><th>Categoría</th><th>Subcategoría</th><th>Descripción</th><th>Horas</th><th>Tercero</th><th>Tarifa</th><th>Eliminar</th></tr>
           </thead>
