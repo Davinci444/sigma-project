@@ -191,10 +191,6 @@ class WorkOrderUnifiedForm(forms.ModelForm):
             if _field_exists(WorkOrder, "severity"):
                 instance.severity = self.cleaned_data.get('severity') or getattr(instance, "severity", None)
             instance.save()
-        else:
-            if _field_exists(WorkOrder, "pre_diagnosis") and getattr(instance, "pre_diagnosis", None):
-                instance.pre_diagnosis = ""
-                instance.save(update_fields=['pre_diagnosis'])
 
         # Guardar campos datetime reales, si existen
         touched_dt = False
@@ -217,37 +213,6 @@ class WorkOrderUnifiedForm(forms.ModelForm):
             instance.save()
 
         return instance
-
-# ---------- Formularios específicos ----------
-class PreventiveWorkOrderForm(WorkOrderUnifiedForm):
-    """Formulario para órdenes preventivas. Oculta campos exclusivos de las correctivas."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Se fuerza el tipo y se oculta el campo correspondiente
-        self.fields.pop('order_type', None)
-        # Eliminar campos relacionados al flujo correctivo
-        for fname in ("pre_diagnosis", "failure_origin", "severity", "probable_causes"):
-            self.fields.pop(fname, None)
-
-    def save(self, user=None, commit=True):
-        # Asignar automáticamente el tipo preventivo antes de guardar
-        self.cleaned_data['order_type'] = WorkOrder.OrderType.PREVENTIVE
-        return super().save(user=user, commit=commit)
-
-
-class CorrectiveWorkOrderForm(WorkOrderUnifiedForm):
-    """Formulario para órdenes correctivas (incluye diagnóstico, severidad y causas)."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Se fuerza el tipo y se oculta el campo correspondiente
-        self.fields.pop('order_type', None)
-
-    def save(self, user=None, commit=True):
-        # Asignar automáticamente el tipo correctivo antes de guardar
-        self.cleaned_data['order_type'] = WorkOrder.OrderType.CORRECTIVE
-        return super().save(user=user, commit=commit)
-
 # ---------- Formset de TAREAS (categoría/subcategoría) ----------
 TaskFormSet = inlineformset_factory(
     WorkOrder, WorkOrderTask,

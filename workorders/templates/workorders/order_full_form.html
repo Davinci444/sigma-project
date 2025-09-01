@@ -26,8 +26,7 @@
       <!-- Datos base -->
       <div class="card grid cols-3">
         <div>
-          <label>Tipo de OT</label>
-          <input type="text" value="{{ order_type_label }}" disabled>
+          <label>Tipo de OT</label>{{ form.order_type }}
         </div>
         <div>
           <label>Vehículo *</label>{{ form.vehicle }}
@@ -121,9 +120,8 @@
       </div>
       {% endif %}
 
-      {% if show_corrective %}
       <!-- Sección Correctivo -->
-      <div class="card" id="corrective-section">
+      <div class="card" id="corrective-section"{% if not show_corrective %} style="display:none"{% endif %}>
         <h2 class="section-title"><span class="badge">Solo Correctivo</span> Diagnóstico</h2>
         <div class="grid cols-3">
           <div><label>Severidad</label>{{ form.severity }}</div>
@@ -132,7 +130,6 @@
           <div style="grid-column:1/-1"><label>Causas probables</label>{{ form.probable_causes }}</div>
         </div>
       </div>
-      {% endif %}
 
       <!-- Tareas -->
       <div class="card">
@@ -235,5 +232,17 @@
 {% endblock %}
 
 {% block extrahead %}
-
+  <script>
+    function toggleCorrective() {
+      var sel = document.getElementById('id_order_type');
+      var section = document.getElementById('corrective-section');
+      if (!sel || !section) return;
+      section.style.display = sel.value === 'CORRECTIVE' ? 'block' : 'none';
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      toggleCorrective();
+      var sel = document.getElementById('id_order_type');
+      if (sel) sel.addEventListener('change', toggleCorrective);
+    });
+  </script>
 {% endblock %}

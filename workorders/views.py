@@ -17,7 +17,7 @@ from .serializers import (
     WorkOrderPartSerializer,
 )
 from .forms import (
-    PreventiveWorkOrderForm, CorrectiveWorkOrderForm, TaskFormSet,
+    WorkOrderUnifiedForm, TaskFormSet,
     QuickCreateVehicleForm, QuickCreateDriverForm,
     QuickCreateCategoryForm, QuickCreateSubcategoryForm
 )
@@ -49,16 +49,14 @@ def workorder_unified(request, pk=None):
     tareas (categoría/subcategoría) y novedades. SIN evidencias."""
     ot = get_object_or_404(WorkOrder, pk=pk) if pk else None
 
-    # Determinar qué formulario usar (preventivo o correctivo)
-    form_cls = PreventiveWorkOrderForm
-    if ot and str(ot.order_type).upper().startswith("CORRECT"):
-        form_cls = CorrectiveWorkOrderForm
-    else:
+    # Tipo inicial según OT existente o querystring
+    initial = {}
+    if not ot:
         t = request.GET.get("type", "")
         if t.lower().startswith("corr"):
-            form_cls = CorrectiveWorkOrderForm
-
-    is_corrective = (form_cls is CorrectiveWorkOrderForm)
+            initial["order_type"] = WorkOrder.OrderType.CORRECTIVE
+        elif t.lower().startswith("prev"):
+            initial["order_type"] = WorkOrder.OrderType.PREVENTIVE
 
     # ---- Quick-Create (crear sin salir) ----
     if request.method == "POST" and request.POST.get("qc_target"):
@@ -102,7 +100,7 @@ def workorder_unified(request, pk=None):
     # ---- Flujo normal crear/editar OT ----
     if request.method == "POST":
         try:
-            form = form_cls(request.POST, instance=ot)
+            form = WorkOrderUnifiedForm(request.POST, instance=ot)
             if ot:
                 task_fs = TaskFormSet(request.POST, instance=ot, prefix="tasks")
             else:
@@ -134,17 +132,22 @@ def workorder_unified(request, pk=None):
         except Exception as e:
             logger.exception("Error al procesar OT unificada: %s", e)
             messages.error(request, "Se produjo un error al guardar la OT. Revisa los datos y vuelve a intentar.")
-            form = form_cls(request.POST, instance=ot)
+            form = WorkOrderUnifiedForm(request.POST, instance=ot)
             task_fs = TaskFormSet(request.POST, instance=ot or None, prefix="tasks")
     else:
-        form = form_cls(instance=ot)
+        form = WorkOrderUnifiedForm(instance=ot, initial=initial)
         task_fs = TaskFormSet(instance=ot, prefix="tasks") if ot else TaskFormSet(prefix="tasks")
 
     notes = ot.notes.order_by("-created_at") if ot and hasattr(ot, "notes") else []
 
     # BoundFields de los datetime “reales” (para no usar form[fname] en plantilla)
-    datetime_real_names = [f for f in form_cls.dynamic_datetime_fields if f in form.fields]
+    datetime_real_names = [f for f in form.dynamic_datetime_fields if f in form.fields]
     dynamic_dt_bfs = [form[name] for name in datetime_real_names]
+
+    ot_value = form.data.get("order_type") if form.is_bound else (
+        form.initial.get("order_type") or getattr(ot, "order_type", "")
+    )
+    show_corrective = str(ot_value).upper().startswith("CORRECT")
 
     # Manual de mantenimiento del vehículo seleccionado
     vehicle_id = (
@@ -171,12 +174,7 @@ def workorder_unified(request, pk=None):
         "dynamic_dt_bfs": dynamic_dt_bfs,  # ← usar esto en la plantilla
         "title": ("Editar OT" if ot else "Nueva OT"),
         "manual": manual,
-        "show_corrective": is_corrective,
-        "order_type_label": (
-            WorkOrder.OrderType.CORRECTIVE.label
-            if is_corrective
-            else WorkOrder.OrderType.PREVENTIVE.label
-        ),
+        "show_corrective": show_corrective,
         # Quick-create forms (si existen)
         "qc_vehicle": QuickCreateVehicleForm() if QuickCreateVehicleForm._meta.fields else None,
         "qc_driver": QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None,
