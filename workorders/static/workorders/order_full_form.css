@@ -1,0 +1,41 @@
+/* Minimal tweaks for the consolidated work order form. */
+
+.order-form .qc {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-top: 6px;
+}
+
+.order-form .qc form {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin: 0;
+}
+
+.order-form .qc input,
+.order-form .qc select {
+    width: auto;
+}
+
+.order-form .badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: #79aec8;
+    color: #fff;
+    font-size: 0.85rem;
+}
+
+.order-form .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+}
+
+.order-form .muted {
+    color: var(--body-quiet-color);
+}
+

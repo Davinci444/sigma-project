@@ -1,31 +1,11 @@
 {% extends "admin/base_site.html" %}
+{% load static %}
 
 {% block title %}{{ title }}{% if ot %} #{{ ot.id }}{% endif %}{% endblock %}
 
 {% block extrastyle %}
-  <style>
-    :root{--bg:#0b1324;--card:#101a34;--text:#e8eefc;--muted:#a9b7d9;--acc:#37d39a;--table:#0d1730}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
-    .wrap{max-width:1150px;margin:24px auto;padding:16px}
-    h1{margin:0 0 8px}
-    .muted{color:var(--muted)}
-    .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 20px rgba(0,0,0,.2);margin-bottom:16px}
-    .grid{display:grid;gap:12px}
-    @media(min-width:980px){.cols-2{grid-template-columns:1fr 1fr}.cols-3{grid-template-columns:1fr 1fr 1fr}}
-    label{display:block;margin:.5rem 0 .25rem;font-weight:600}
-    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #273253;background:#0d1730;color:var(--text)}
-    table{width:100%;border-collapse:collapse;background:var(--table);border-radius:12px;overflow:hidden}
-    th,td{padding:8px;border-bottom:1px solid #1b2a52}
-    th{text-align:left;font-weight:700}
-    .actions{display:flex;gap:12px;margin-top:14px}
-    .btn{background:var(--acc);color:#04111c;border:none;padding:12px 16px;border-radius:12px;font-weight:700;cursor:pointer}
-    a.link{color:#8dd2ff}
-    .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#16305e;color:#9fd1ff;font-size:.85rem}
-    .section-title{display:flex;align-items:center;gap:8px;margin:0 0 10px}
-    .qc{display:flex;gap:8px;align-items:flex-end;margin-top:6px}
-    .qc form{display:flex;gap:8px;align-items:flex-end;margin:0}
-    .qc input, .qc select{width:auto}
-  </style>
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'workorders/order_full_form.css' %}">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -36,7 +16,7 @@
 {% endblock %}
 
 {% block content %}
-  <div class="wrap">
+  <div class="order-form">
     <h1>{{ title }}{% if ot %} — OT #{{ ot.id }} — {{ ot.vehicle }}{% endif %}</h1>
     <p class="muted">Orden de Trabajo unificada: conductor, fechas, (correctivo) diagnóstico, tareas y novedades. Sin evidencias.</p>
 
@@ -56,7 +36,7 @@
               {% csrf_token %}
               <input type="hidden" name="qc_target" value="vehicle">
               <input type="text" name="plate" placeholder="Placa nueva" required>
-              <button class="btn" type="submit">Crear placa</button>
+              <button class="button" type="submit">Crear placa</button>
             </form>
           </div>
           {% endif %}
@@ -129,7 +109,7 @@
               {% if 'is_active' in qc_driver.fields %}
                 <label><input type="checkbox" name="is_active" checked> Activo</label>
               {% endif %}
-              <button class="btn" type="submit">Crear conductor</button>
+              <button class="button" type="submit">Crear conductor</button>
             </form>
           </div>
           {% endif %}
@@ -162,7 +142,7 @@
             {% csrf_token %}
             <input type="hidden" name="qc_target" value="category">
             <input type="text" name="name" placeholder="Nueva categoría" required>
-            <button class="btn" type="submit">Crear categoría</button>
+            <button class="button" type="submit">Crear categoría</button>
           </form>
           {% endif %}
           {% if qc_subcategory %}
@@ -181,7 +161,7 @@
                   {% endfor %}
                 </select>
               {% endif %}
-              <button class="btn" type="submit">Crear subcategoría</button>
+              <button class="button" type="submit">Crear subcategoría</button>
             </form>
             {% endif %}
           </div>
@@ -213,7 +193,7 @@
         <div class="grid cols-2">
           <div>
             <p class="muted">Las novedades nuevas se agregan desde “Comentario inicial” o “Causas probables” al guardar.</p>
-            <div class="actions"><button class="btn" type="submit">Guardar</button></div>
+            <div class="submit-row"><input type="submit" value="Guardar" class="default"></div>
           </div>
           <div>
             {% if notes %}
@@ -229,9 +209,9 @@
         </div>
       </div>
 
-        <div class="actions">
-          <button class="btn" type="submit">Guardar</button>
-          {% if ot %}<a class="link" href="{% url 'admin:index' %}">Panel</a>{% endif %}
+        <div class="submit-row">
+          <input type="submit" value="Guardar" class="default">
+          {% if ot %}<a href="{% url 'admin:index' %}" class="button">Panel</a>{% endif %}
         </div>
       </form>
     </div>
