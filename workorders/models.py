@@ -159,15 +159,9 @@ class WorkOrder(models.Model):
 
     class OrderStatus(models.TextChoices):
         SCHEDULED = "SCHEDULED", "Programada"
-        IN_RECEPTION = "IN_RECEPTION", "En Recepción"
-        IN_SERVICE = "IN_SERVICE", "En Servicio"
         WAITING_PART = "WAITING_PART", "Espera Repuesto"
-        PENDING_APPROVAL = "PENDING_APPROVAL", "Pendiente Aprobación"
-        STOPPED_BY_CLIENT = "STOPPED_BY_CLIENT", "Detenida Cliente"
         IN_ROAD_TEST = "IN_ROAD_TEST", "Prueba de Ruta"
         COMPLETED = "COMPLETED", "Completada"
-        VERIFIED = "VERIFIED", "Verificada"
-        CANCELLED = "CANCELLED", "Cancelada"
 
     class Priority(models.TextChoices):
         LOW = "LOW", "Baja"
