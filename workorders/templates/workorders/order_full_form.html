@@ -1,9 +1,8 @@
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <title>{{ title }}{% if ot %} #{{ ot.id }}{% endif %}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+{% extends "admin/base_site.html" %}
+
+{% block title %}{{ title }}{% if ot %} #{{ ot.id }}{% endif %}{% endblock %}
+
+{% block extrastyle %}
   <style>
     :root{--bg:#0b1324;--card:#101a34;--text:#e8eefc;--muted:#a9b7d9;--acc:#37d39a;--table:#0d1730}
     *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
@@ -27,8 +26,16 @@
     .qc form{display:flex;gap:8px;align-items:flex-end;margin:0}
     .qc input, .qc select{width:auto}
   </style>
-</head>
-<body>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Panel</a>
+  &rsaquo; {{ title }}{% if ot %} #{{ ot.id }}{% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
   <div class="wrap">
     <h1>{{ title }}{% if ot %} — OT #{{ ot.id }} — {{ ot.vehicle }}{% endif %}</h1>
     <p class="muted">Orden de Trabajo unificada: conductor, fechas, (correctivo) diagnóstico, tareas y novedades. Sin evidencias.</p>
@@ -222,33 +229,34 @@
         </div>
       </div>
 
-      <div class="actions">
-        <button class="btn" type="submit">Guardar</button>
-        {% if ot %}<a class="link" href="/admin/">Panel</a>{% endif %}
-      </div>
-    </form>
-  </div>
+        <div class="actions">
+          <button class="btn" type="submit">Guardar</button>
+          {% if ot %}<a class="link" href="{% url 'admin:index' %}">Panel</a>{% endif %}
+        </div>
+      </form>
+    </div>
+{% endblock %}
 
-  <script>
-    // Mostrar/Ocultar "Correctivo" robusto (por value y por texto visible)
-    function isCorrectiveOption(sel){
-      if(!sel) return false;
-      const val = (sel.value || "").toUpperCase();
-      if(val.includes("CORRECTIVE")) return true;
-      const opt = sel.options[sel.selectedIndex];
-      const text = (opt && opt.text ? opt.text : "").toLowerCase();
-      return text.includes("correctiv");
-    }
-    function toggleCorrective(){
-      const sel = document.getElementById("id_order_type");
-      const block = document.getElementById("corrective-section");
-      if(!sel || !block) return;
-      block.style.display = isCorrectiveOption(sel) ? "block" : "none";
-    }
-    document.addEventListener("change", function(e){
-      if(e.target && e.target.id === "id_order_type") toggleCorrective();
-    });
-    document.addEventListener("DOMContentLoaded", toggleCorrective);
-  </script>
-</body>
-</html>
+{% block extrahead %}
+<script>
+      // Mostrar/Ocultar "Correctivo" robusto (por value y por texto visible)
+      function isCorrectiveOption(sel){
+        if(!sel) return false;
+        const val = (sel.value || "").toUpperCase();
+        if(val.includes("CORRECTIVE")) return true;
+        const opt = sel.options[sel.selectedIndex];
+        const text = (opt && opt.text ? opt.text : "").toLowerCase();
+        return text.includes("correctiv");
+      }
+      function toggleCorrective(){
+        const sel = document.getElementById("id_order_type");
+        const block = document.getElementById("corrective-section");
+        if(!sel || !block) return;
+        block.style.display = isCorrectiveOption(sel) ? "block" : "none";
+      }
+      document.addEventListener("change", function(e){
+        if(e.target && e.target.id === "id_order_type") toggleCorrective();
+      });
+      document.addEventListener("DOMContentLoaded", toggleCorrective);
+</script>
+{% endblock %}
