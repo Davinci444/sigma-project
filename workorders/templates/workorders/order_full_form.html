@@ -235,21 +235,5 @@
 {% endblock %}
 
 {% block extrahead %}
-<script>
-      // Mostrar/Ocultar "Correctivo" robusto (por value y por texto visible)
-      document.addEventListener("DOMContentLoaded", function(){
-        const addBtn = document.getElementById("add-task-btn");
-        const totalForms = document.getElementById("id_tasks-TOTAL_FORMS");
-        const tableBody = document.querySelector("#tasks-table tbody");
-        const tmpl = document.getElementById("task-empty-form");
-        if(addBtn && totalForms && tableBody && tmpl){
-          addBtn.addEventListener("click", function(){
-            const idx = parseInt(totalForms.value, 10);
-            const newRowHtml = tmpl.innerHTML.replace(/__prefix__/g, idx);
-            tableBody.insertAdjacentHTML('beforeend', newRowHtml);
-            totalForms.value = idx + 1;
-          });
-        }
-      });
-</script>
+
 {% endblock %}
