@@ -15,6 +15,7 @@
     th,td{padding:10px;border-bottom:1px solid #1b2a52}
     th{text-align:left}
     a{color:#8dd2ff}
+    .in-progress{background:#18254d}
   </style>
 </head>
 <body>
@@ -46,7 +47,7 @@
         <thead><tr><th>Vehículo</th><th>Estado</th><th>Desde</th><th>OT</th></tr></thead>
         <tbody>
           {% for ot in in_shop %}
-            <tr>
+            <tr class="{% if ot.status == 'IN_PROGRESS' %}in-progress{% endif %}">
               <td>{{ ot.vehicle }}</td>
               <td>{{ ot.get_status_display }}</td>
               <td>{{ ot.scheduled_start|date:"Y-m-d H:i" }}</td>

@@ -5,6 +5,12 @@ from django.db.models import Q
 from .models import Vehicle
 from workorders.models import WorkOrder
 
+IN_WORKSHOP_STATUSES = [
+    WorkOrder.OrderStatus.IN_PROGRESS,
+    WorkOrder.OrderStatus.WAITING_PART,
+    WorkOrder.OrderStatus.IN_ROAD_TEST,
+]
+
 
 class EnTallerFilter(admin.SimpleListFilter):
     title = "¿Vehículo en taller?"
@@ -16,18 +22,15 @@ class EnTallerFilter(admin.SimpleListFilter):
     def queryset(self, request, qs):
         if self.value() == "yes":
             return qs.filter(
-                workorder__check_in_at__isnull=False
-            ).exclude(
-                workorder__status__in=[
-                    WorkOrder.OrderStatus.COMPLETED,
-                ]
+                workorder__check_in_at__isnull=False,
+                workorder__status__in=IN_WORKSHOP_STATUSES,
             ).distinct()
         if self.value() == "no":
             return qs.exclude(
-                Q(workorder__check_in_at__isnull=False)
-                & ~Q(workorder__status__in=[
-                    WorkOrder.OrderStatus.COMPLETED,
-                ])
+                Q(
+                    workorder__check_in_at__isnull=False,
+                    workorder__status__in=IN_WORKSHOP_STATUSES,
+                )
             ).distinct()
         return qs
 
@@ -63,11 +66,8 @@ class VehicleAdmin(admin.ModelAdmin):
     def en_taller(self, obj: Vehicle) -> bool:
         return WorkOrder.objects.filter(
             vehicle=obj,
-            check_in_at__isnull=False
-        ).exclude(
-            status__in=[
-                WorkOrder.OrderStatus.COMPLETED,
-            ]
+            check_in_at__isnull=False,
+            status__in=IN_WORKSHOP_STATUSES,
         ).exists()
     en_taller.boolean = True
     en_taller.short_description = "En taller"
