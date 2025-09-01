@@ -23,7 +23,6 @@ class TaskFormSetTests(TestCase):
     def test_can_add_multiple_tasks(self):
         url = reverse("workorders_unified_new") + "?type=corrective"
         data = {
-            "order_type": WorkOrder.OrderType.CORRECTIVE,
             "vehicle": self.vehicle.id,
             "status": WorkOrder.OrderStatus.SCHEDULED,
             "priority": WorkOrder.Priority.MEDIUM,

@@ -39,7 +39,8 @@
       <!-- Datos base -->
       <div class="card grid cols-3">
         <div>
-          <label>Tipo de OT *</label>{{ form.order_type }}
+          <label>Tipo de OT</label>
+          <input type="text" value="{{ order_type_label }}" disabled>
         </div>
         <div>
           <label>Vehículo *</label>{{ form.vehicle }}
@@ -123,6 +124,7 @@
       </div>
       {% endif %}
 
+      {% if show_corrective %}
       <!-- Sección Correctivo -->
       <div class="card" id="corrective-section">
         <h2 class="section-title"><span class="badge">Solo Correctivo</span> Diagnóstico</h2>
@@ -133,6 +135,7 @@
           <div style="grid-column:1/-1"><label>Causas probables (se registra como novedad)</label>{{ form.probable_causes }}</div>
         </div>
       </div>
+      {% endif %}
 
       <!-- Tareas -->
       <div class="card">
@@ -215,26 +218,6 @@
     </form>
   </div>
 
-  <script>
-    // Mostrar/Ocultar "Correctivo" robusto (por value y por texto visible)
-    function isCorrectiveOption(sel){
-      if(!sel) return false;
-      const val = (sel.value || "").toUpperCase();
-      if(val.includes("CORRECTIVE")) return true;
-      const opt = sel.options[sel.selectedIndex];
-      const text = (opt && opt.text ? opt.text : "").toLowerCase();
-      return text.includes("correctiv");
-    }
-    function toggleCorrective(){
-      const sel = document.getElementById("id_order_type");
-      const block = document.getElementById("corrective-section");
-      if(!sel || !block) return;
-      block.style.display = isCorrectiveOption(sel) ? "block" : "none";
-    }
-    document.addEventListener("change", function(e){
-      if(e.target && e.target.id === "id_order_type") toggleCorrective();
-    });
-    document.addEventListener("DOMContentLoaded", toggleCorrective);
-  </script>
+  
 </body>
 </html>

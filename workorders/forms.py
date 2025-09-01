@@ -197,15 +197,29 @@ class PreventiveWorkOrderForm(WorkOrderUnifiedForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Se fuerza el tipo y se oculta el campo correspondiente
+        self.fields.pop('order_type', None)
         # Eliminar campos relacionados al flujo correctivo
         for fname in ("pre_diagnosis", "failure_origin", "severity", "probable_causes"):
             self.fields.pop(fname, None)
 
+    def save(self, user=None, commit=True):
+        # Asignar automáticamente el tipo preventivo antes de guardar
+        self.cleaned_data['order_type'] = WorkOrder.OrderType.PREVENTIVE
+        return super().save(user=user, commit=commit)
+
 
 class CorrectiveWorkOrderForm(WorkOrderUnifiedForm):
     """Formulario para órdenes correctivas (incluye diagnóstico, severidad y causas)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Se fuerza el tipo y se oculta el campo correspondiente
+        self.fields.pop('order_type', None)
 
-    pass
+    def save(self, user=None, commit=True):
+        # Asignar automáticamente el tipo correctivo antes de guardar
+        self.cleaned_data['order_type'] = WorkOrder.OrderType.CORRECTIVE
+        return super().save(user=user, commit=commit)
 
 # ---------- Formset de TAREAS (categoría/subcategoría) ----------
 TaskFormSet = inlineformset_factory(
