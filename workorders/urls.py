@@ -12,21 +12,19 @@ from .views import (
     schedule_view,
 )
 
-# --------- HTML UNIFICADO (PRIMERO para no chocarse con DRF) ---------
+# --------- HTML UNIFICADO (no admin; compatibilidad) ---------
 urlpatterns = [
     path("workorders/new/", workorder_unified, name="workorders_unified_new"),
     path("workorders/<int:pk>/edit/", workorder_unified, name="workorders_unified_edit"),
 
-    # Compatibilidad con rutas antiguas (redirigen a la unificada)
     path("new/preventive/", new_preventive, name="workorders_new_preventive"),
     path("new/corrective/", new_corrective, name="workorders_new_corrective"),
     path("<int:pk>/tasks/", edit_tasks, name="workorders_edit_tasks"),
 
-    # Programación
     path("schedule/", schedule_view, name="workorders_schedule"),
 ]
 
-# ---------- API (DRF) DESPUÉS ----------
+# ---------- API (DRF) ----------
 router = DefaultRouter()
 router.register(r"workorders", WorkOrderViewSet)
 router.register(r"plans", MaintenancePlanViewSet)

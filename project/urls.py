@@ -42,6 +42,9 @@ admin.site.index = custom_index
 
 
 urlpatterns = [
+    # NUEVO: rutas HTML de OT dentro del admin (ANTES del include del admin)
+    path('admin/workorders/', include('workorders.admin_urls')),
+
     path('admin/', admin.site.urls),
     
     # URLs de nuestras aplicaciones principales

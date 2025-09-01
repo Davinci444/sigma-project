@@ -7,7 +7,7 @@
   <div class="module aligned" style="margin-top:24px;">
     <h2 style="margin-bottom:8px;">Editar en interfaz unificada</h2>
     <p>Gestiona conductor, fechas, (correctivo) diagnóstico, tareas y novedades en una sola pantalla.</p>
-    <p><a class="button" href="{% url 'workorders_unified_edit' original.id %}">Abrir editor unificado</a></p>
+    <p><a class="button" href="{% url 'workorders_admin_edit' original.id %}">Abrir editor unificado</a></p>
 
     <h2 style="margin-top:24px;">Novedades de OT</h2>
     {% if original.notes.all %}
@@ -23,7 +23,7 @@
   {% else %}
   <div class="module aligned" style="margin-top:24px;">
     <p>Para crear una nueva OT usa la interfaz unificada:</p>
-    <p><a class="button" href="{% url 'workorders_unified_new' %}">Nueva OT</a></p>
+    <p><a class="button" href="{% url 'workorders_admin_new' %}">Nueva OT</a></p>
   </div>
   {% endif %}
 {% endblock %}

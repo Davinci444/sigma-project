@@ -85,7 +85,7 @@ def workorder_unified(request, pk=None):
         except Exception as e:
             logger.exception("Quick-Create falló: %s", e)
             messages.error(request, "Error al crear. Verifica los campos mínimos requeridos del modelo.")
-        return redirect(request.path if not pk else f"/api/workorders/workorders/{pk}/edit/")
+        return redirect(request.path if not pk else request.path)
 
     # ---- Flujo normal crear/editar OT ----
     if request.method == "POST":
@@ -110,9 +110,10 @@ def workorder_unified(request, pk=None):
                         except Exception as e:
                             logger.warning("recalculate_costs falló: %s", e)
 
-                    from django.contrib import messages
+                    # Redirección por nombre según el prefijo de la ruta
+                    dest = "workorders_admin_edit" if request.path.startswith("/admin/") else "workorders_unified_edit"
                     messages.success(request, f"OT #{ot_saved.id} guardada correctamente.")
-                    return redirect("workorders_unified_edit", pk=ot_saved.id)
+                    return redirect(dest, pk=ot_saved.id)
                 else:
                     messages.error(request, "Corrige los errores en Tareas.")
                     ot = ot_saved  # re-render
@@ -129,26 +130,22 @@ def workorder_unified(request, pk=None):
 
     notes = ot.notes.order_by("-created_at") if ot and hasattr(ot, "notes") else []
 
-    # Campos datetime “reales” presentes
-    datetime_real_fields = [f for f in WorkOrderUnifiedForm.dynamic_datetime_fields if f in form.fields]
-
-    # Quick-create forms vacíos (solo si sus modelos existen)
-    qc_vehicle = QuickCreateVehicleForm() if QuickCreateVehicleForm._meta.fields else None
-    qc_driver = QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None
-    qc_category = QuickCreateCategoryForm() if QuickCreateCategoryForm._meta.fields else None
-    qc_subcategory = QuickCreateSubcategoryForm() if QuickCreateSubcategoryForm._meta.fields else None
+    # BoundFields de los datetime “reales” (para no usar form[fname] en plantilla)
+    datetime_real_names = [f for f in WorkOrderUnifiedForm.dynamic_datetime_fields if f in form.fields]
+    dynamic_dt_bfs = [form[name] for name in datetime_real_names]
 
     return render(request, "workorders/order_full_form.html", {
         "form": form,
         "task_fs": task_fs,
         "notes": notes,
         "ot": ot,
-        "datetime_real_fields": datetime_real_fields,
-        "qc_vehicle": qc_vehicle,
-        "qc_driver": qc_driver,
-        "qc_category": qc_category,
-        "qc_subcategory": qc_subcategory,
+        "dynamic_dt_bfs": dynamic_dt_bfs,  # ← usar esto en la plantilla
         "title": ("Editar OT" if ot else "Nueva OT"),
+        # Quick-create forms (si existen)
+        "qc_vehicle": QuickCreateVehicleForm() if QuickCreateVehicleForm._meta.fields else None,
+        "qc_driver": QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None,
+        "qc_category": QuickCreateCategoryForm() if QuickCreateCategoryForm._meta.fields else None,
+        "qc_subcategory": QuickCreateSubcategoryForm() if QuickCreateSubcategoryForm._meta.fields else None,
     })
 
 

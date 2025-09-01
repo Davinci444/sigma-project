@@ -73,9 +73,9 @@
         {% if form.fields.actual_start %}<div><label>{{ form.actual_start.label }}</label>{{ form.actual_start }}</div>{% endif %}
         {% if form.fields.actual_end %}<div><label>{{ form.actual_end.label }}</label>{{ form.actual_end }}</div>{% endif %}
 
-        {% for fname in datetime_real_fields %}
-          {% if fname != 'actual_start' and fname != 'actual_end' %}
-          <div><label>{{ form[fname].label }}</label>{{ form[fname] }}</div>
+        {% for bf in dynamic_dt_bfs %}
+          {% if bf.name != 'actual_start' and bf.name != 'actual_end' %}
+          <div><label>{{ bf.label }}</label>{{ bf }}</div>
           {% endif %}
         {% endfor %}
 
