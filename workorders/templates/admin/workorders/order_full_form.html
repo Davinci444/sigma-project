@@ -35,95 +35,42 @@
 
       <!-- Datos base -->
       <div class="card grid cols-3">
-        <div>
-          <label>Tipo de OT *</label>
-          {{ form.order_type }}
-        </div>
-        <div>
-          <label>Vehículo *</label>
-          {{ form.vehicle }}
-        </div>
-        <div>
-          <label>Estado *</label>
-          {{ form.status }}
-        </div>
-        <div>
-          <label>Prioridad *</label>
-          {{ form.priority }}
-        </div>
-        <div>
-          <label>Inicio programado</label>
-          {{ form.scheduled_start }}
-        </div>
-        <div>
-          <label>Salida estimada</label>
-          {{ form.scheduled_end }}
-        </div>
-        <div>
-          <label>Odómetro al recibir</label>
-          {{ form.odometer_at_service }}
-        </div>
+        <div><label>Tipo de OT *</label>{{ form.order_type }}</div>
+        <div><label>Vehículo *</label>{{ form.vehicle }}</div>
+        <div><label>Estado *</label>{{ form.status }}</div>
+        <div><label>Prioridad *</label>{{ form.priority }}</div>
+        <div><label>Inicio programado</label>{{ form.scheduled_start }}</div>
+        <div><label>Salida estimada</label>{{ form.scheduled_end }}</div>
+        <div><label>Odómetro al recibir</label>{{ form.odometer_at_service }}</div>
 
-        {% if form.fields.actual_start %}
-        <div>
-          <label>Entrada real</label>
-          {{ form.actual_start }}
-        </div>
-        {% endif %}
-        {% if form.fields.actual_end %}
-        <div>
-          <label>Salida real</label>
-          {{ form.actual_end }}
-        </div>
-        {% endif %}
+        {% if form.fields.actual_start %}<div><label>Entrada real</label>{{ form.actual_start }}</div>{% endif %}
+        {% if form.fields.actual_end %}<div><label>Salida real</label>{{ form.actual_end }}</div>{% endif %}
 
         {% for fname in datetime_real_fields %}
           {% if fname != 'actual_start' and fname != 'actual_end' %}
-          <div>
-            <label>{{ fname|capfirst|replace:"_" " " }}</label>
-            {{ form[fname] }}
-          </div>
+          <div><label>{{ fname|capfirst|replace:"_" " " }}</label>{{ form[fname] }}</div>
           {% endif %}
         {% endfor %}
 
         <div class="cols-2" style="grid-column:1/-1">
-          <label>Descripción del problema / trabajo</label>
-          {{ form.description }}
+          <label>Descripción del problema / trabajo</label>{{ form.description }}
         </div>
       </div>
 
       <!-- Conductor -->
       <div class="card grid cols-2">
-        <div>
-          <label>Conductor responsable</label>
-          {{ form.driver }}
-        </div>
-        <div>
-          <label>% responsabilidad</label>
-          {{ form.driver_responsibility }}
-        </div>
+        <div><label>Conductor responsable</label>{{ form.driver }}</div>
+        <div><label>% responsabilidad</label>{{ form.driver_responsibility }}</div>
       </div>
 
       <!-- Sección Correctivo -->
       <div class="card" id="corrective-section">
         <h2 class="section-title"><span class="badge">Solo Correctivo</span> Diagnóstico</h2>
         <div class="grid cols-3">
-          <div>
-            <label>Severidad</label>
-            {{ form.severity }}
-          </div>
-          <div>
-            <label>Origen de la falla</label>
-            {{ form.failure_origin }}
-          </div>
-          <div style="grid-column:1/-1">
-            <label>Pre-diagnóstico</label>
-            {{ form.pre_diagnosis }}
-          </div>
-          <div style="grid-column:1/-1">
-            <label>Causas probables (se registra como novedad)</label>
-            {{ form.probable_causes }}
-          </div>
+          <div><label>Severidad</label>{{ form.severity }}</div>
+          <div><label>Origen de la falla</label>{{ form.failure_origin }}</div>
+          <div style="grid-column:1/-1"><label>Pre-diagnóstico</label>{{ form.pre_diagnosis }}</div>
+          <div style="grid-column:1/-1"><label>Causas probables (se registra como novedad)</label>{{ form.probable_causes }}</div>
         </div>
       </div>
 
@@ -133,20 +80,13 @@
         {{ task_fs.management_form }}
         <table>
           <thead>
-            <tr>
-              <th>Categoría</th><th>Subcategoría</th><th>Descripción</th><th>Horas</th><th>Tercero</th><th>Tarifa</th><th>Eliminar</th>
-            </tr>
+            <tr><th>Categoría</th><th>Subcategoría</th><th>Descripción</th><th>Horas</th><th>Tercero</th><th>Tarifa</th><th>Eliminar</th></tr>
           </thead>
           <tbody>
             {% for f in task_fs %}
             <tr>
-              <td>{{ f.category }}</td>
-              <td>{{ f.subcategory }}</td>
-              <td>{{ f.description }}</td>
-              <td>{{ f.hours_spent }}</td>
-              <td>{{ f.is_external }}</td>
-              <td>{{ f.labor_rate }}</td>
-              <td>{{ f.DELETE }}</td>
+              <td>{{ f.category }}</td><td>{{ f.subcategory }}</td><td>{{ f.description }}</td>
+              <td>{{ f.hours_spent }}</td><td>{{ f.is_external }}</td><td>{{ f.labor_rate }}</td><td>{{ f.DELETE }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -161,11 +101,7 @@
           <thead><tr><th>URL</th><th>Descripción</th><th>Eliminar</th></tr></thead>
           <tbody>
             {% for f in evid_fs %}
-            <tr>
-              <td>{{ f.url }}</td>
-              <td>{{ f.description }}</td>
-              <td>{{ f.DELETE }}</td>
-            </tr>
+            <tr><td>{{ f.url }}</td><td>{{ f.description }}</td><td>{{ f.DELETE }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -201,9 +137,7 @@
   </div>
 
   <script>
-    // Mostrar/Ocultar "Correctivo" robusto:
-    // 1) Si el value contiene "CORRECTIVE" (enum)
-    // 2) O si el texto visible contiene "correctiv" (por etiquetas en español)
+    // Mostrar/Ocultar "Correctivo" robusto (por value y por texto visible)
     function isCorrectiveOption(sel){
       if(!sel) return false;
       const val = (sel.value || "").toUpperCase();

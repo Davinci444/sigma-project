@@ -1,4 +1,5 @@
 # workorders/views.py
+"""Vistas API y HTML (unificadas) para órdenes de trabajo."""
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -8,14 +9,19 @@ from rest_framework import viewsets
 
 from .models import WorkOrder, MaintenancePlan, WorkOrderTask, WorkOrderPart
 from .serializers import (
-    WorkOrderSerializer, MaintenancePlanSerializer,
-    WorkOrderTaskSerializer, WorkOrderPartSerializer
+    WorkOrderSerializer,
+    MaintenancePlanSerializer,
+    WorkOrderTaskSerializer,
+    WorkOrderPartSerializer,
 )
-from .forms import (
-    WorkOrderUnifiedForm, TaskFormSet, EvidenceURLFormSet, WorkOrderNoteForm
+from .forms import (                        # ← NUEVO
+    WorkOrderUnifiedForm,
+    TaskFormSet,
+    EvidenceURLFormSet,
+    WorkOrderNoteForm,
 )
 
-# ========= API (sin cambios de comportamiento) =========
+# ========= API (intacto) =========
 class WorkOrderViewSet(viewsets.ModelViewSet):
     queryset = WorkOrder.objects.all().prefetch_related("tasks", "parts_used", "attachments", "notes")
     serializer_class = WorkOrderSerializer
@@ -33,9 +39,15 @@ class MaintenancePlanViewSet(viewsets.ModelViewSet):
     serializer_class = MaintenancePlanSerializer
 
 
-# ========= Vista unificada (única pantalla) =========
+# ========= VISTA UNIFICADA (UNA SOLA PANTALLA) =========
 @staff_member_required
 def workorder_unified(request, pk=None):
+    """
+    - Si pk es None: crear OT
+    - Si pk existe: editar OT
+    Todo en una pantalla: datos base, conductor, (correctivo) prediagnóstico/origen/severidad,
+    tareas (categoría/subcategoría), evidencias (URL) y novedades.
+    """
     ot = get_object_or_404(WorkOrder, pk=pk) if pk else None
 
     if request.method == "POST":
@@ -58,6 +70,7 @@ def workorder_unified(request, pk=None):
             if task_fs.is_valid() and evid_fs.is_valid():
                 task_fs.save()
                 evid_fs.save()
+
                 if note_form.is_valid() and note_form.cleaned_data.get("text"):
                     note = note_form.save(commit=False)
                     note.work_order = ot_saved
@@ -82,7 +95,7 @@ def workorder_unified(request, pk=None):
 
     notes = ot.notes.order_by("-created_at") if ot and hasattr(ot, "notes") else []
 
-    # Pasamos la lista de campos datetime "reales" presentes para pintarlos
+    # Campos datetime “reales” presentes (por si tu modelo los tiene; si no, no se muestran)
     datetime_real_fields = [f for f in WorkOrderUnifiedForm.dynamic_datetime_fields if f in form.fields]
 
     return render(request, "workorders/order_full_form.html", {
@@ -109,3 +122,28 @@ def new_corrective(request):
 @require_http_methods(["GET", "POST"])
 def edit_tasks(request, pk: int):
     return redirect("workorders_unified_edit", pk=pk)
+
+
+# ========= Tu vista de Programación (se mantiene) =========
+from django.shortcuts import render
+from django.utils import timezone
+from collections import defaultdict
+
+@staff_member_required
+def schedule_view(request):
+    """(Se deja como la tienes; si quieres, luego la afinamos.)"""
+    qs = (WorkOrder.objects
+          .select_related("vehicle")
+          .order_by("scheduled_start", "priority", "id"))
+
+    grouped = defaultdict(list)
+    for ot in qs:
+        day = (ot.scheduled_start.date() if ot.scheduled_start else timezone.now().date())
+        grouped[day].append(ot)
+
+    ordered_days = sorted(grouped.keys())
+    return render(request, "workorders/schedule.html", {
+        "days": ordered_days,
+        "grouped": grouped,
+        "title": "Programación de Vehículos por Fecha",
+    })

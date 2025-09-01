@@ -9,7 +9,7 @@ from .models import (
 from users.models import Driver
 
 # ---------- util ----------
-def field_exists(model, name: str) -> bool:
+def _field_exists(model, name: str) -> bool:
     try:
         model._meta.get_field(name)
         return True
@@ -43,7 +43,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         choices=WorkOrder.Severity.choices, required=False
     )
 
-    # Nota rápida y causas probables -> se registran como Novedades
+    # Nota rápida y “causas probables” como novedad
     first_comment = forms.CharField(
         label="Comentario inicial (opcional)",
         required=False, widget=forms.Textarea(attrs={'rows':2})
@@ -53,8 +53,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         required=False, widget=forms.Textarea(attrs={'rows':2})
     )
 
-    # Campos de fecha/hora "reales" (los agrego dinámicamente si existen en el modelo)
-    # Ejemplos comunes: actual_start / actual_end / received_at / delivered_at / started_at / finished_at
+    # Campos de fecha/hora "reales" si existen en tu modelo
     dynamic_datetime_fields = ("actual_start", "actual_end", "received_at", "delivered_at", "started_at", "finished_at")
 
     class Meta:
@@ -64,7 +63,6 @@ class WorkOrderUnifiedForm(forms.ModelForm):
             'status', 'priority',
             'scheduled_start', 'scheduled_end',
             'odometer_at_service',
-            # los campos correctivos los manejo aparte
         ]
         widgets = {
             'scheduled_start': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
@@ -74,11 +72,9 @@ class WorkOrderUnifiedForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        # Agregar dinámicamente campos datetime reales si existen en el modelo
+        # Agregamos dinámicamente campos datetime si existen
         for fname in self.dynamic_datetime_fields:
-            if field_exists(WorkOrder, fname):
-                self.fields[fname] = forms.DateTimeInput()
+            if _field_exists(WorkOrder, fname):
                 self.fields[fname] = forms.DateTimeField(
                     required=False,
                     widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
@@ -111,23 +107,21 @@ class WorkOrderUnifiedForm(forms.ModelForm):
                 work_order=instance, text=f"Causas probables: {causas}", author=user
             )
 
-        # Correctivo: guarda 3 campos
+        # Correctivo: guarda 3 campos; Preventivo: limpia pre_diagnóstico
         if self.cleaned_data.get('order_type') == WorkOrder.OrderType.CORRECTIVE:
             instance.pre_diagnosis = self.cleaned_data.get('pre_diagnosis')
             instance.failure_origin = self.cleaned_data.get('failure_origin') or instance.failure_origin
             instance.severity = self.cleaned_data.get('severity') or instance.severity
             instance.save(update_fields=['pre_diagnosis','failure_origin','severity'])
         else:
-            # limpiar pre_diagnóstico en preventivo para no contaminar datos
             if hasattr(instance, 'pre_diagnosis') and instance.pre_diagnosis:
                 instance.pre_diagnosis = ""
                 instance.save(update_fields=['pre_diagnosis'])
 
-        # Guardar campos datetime reales si existieran
+        # Guardar campos datetime “reales”, si existen
         for fname in self.dynamic_datetime_fields:
             if fname in self.fields:
-                val = self.cleaned_data.get(fname)
-                setattr(instance, fname, val)
+                setattr(instance, fname, self.cleaned_data.get(fname))
         if any(fname in self.fields for fname in self.dynamic_datetime_fields):
             instance.save()
 
