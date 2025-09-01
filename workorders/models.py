@@ -5,7 +5,6 @@ from django.db.models import Sum, F, ExpressionWrapper, DecimalField, Q
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
-from django.utils import timezone
 
 from fleet.models import Vehicle
 from inventory.models import Part
@@ -385,45 +384,3 @@ def on_part_change(sender, instance, **kwargs):
     instance.work_order.recalculate_costs()
 
 
-# -----------------------------
-# Señal: activar plan con 1er preventivo
-# -----------------------------
-@receiver(post_save, sender=WorkOrder)
-def activate_plan_on_first_preventive(sender, instance: WorkOrder, created, **kwargs):
-    """
-    Al marcar COMPLETED una OT Preventiva:
-    - Activa el plan del vehículo (si no lo estaba).
-    - Actualiza last_service_km y last_service_date al odómetro actual.
-    """
-    try:
-        if instance.order_type != WorkOrder.OrderType.PREVENTIVE:
-            return
-        if instance.status != WorkOrder.OrderStatus.COMPLETED:
-            return
-
-        vehicle = instance.vehicle
-        plan, _ = MaintenancePlan.objects.get_or_create(
-            vehicle=vehicle,
-            defaults={
-                "manual": MaintenanceManual.objects.filter(fuel_type=vehicle.fuel_type).first(),
-                "is_active": False,
-                "last_service_km": 0,
-            },
-        )
-
-        updated = False
-        current_km = vehicle.current_odometer_km or 0
-        if current_km > (plan.last_service_km or 0):
-            plan.last_service_km = current_km
-            plan.last_service_date = timezone.now().date()
-            updated = True
-
-        if not plan.is_active:
-            plan.is_active = True
-            updated = True
-
-        if updated:
-            plan.save()
-    except Exception:
-        import logging
-        logging.getLogger(__name__).exception("Error al activar plan preventivo")
