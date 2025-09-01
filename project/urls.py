@@ -10,31 +10,66 @@ original_index = admin.site.index
 def custom_index(request, extra_context=None):
     from django.utils import timezone
     from workorders.models import WorkOrder
-    
+    from fleet.models import Vehicle
+
     today = timezone.now()
-    
+
     # Contamos los vehículos que ya ingresaron al taller
-    in_workshop_count = WorkOrder.objects.filter(
-        check_in_at__isnull=False,
-        check_in_at__lte=today
-    ).exclude(
-        status__in=[WorkOrder.OrderStatus.VERIFIED, WorkOrder.OrderStatus.CANCELLED]
-    ).values('vehicle').distinct().count()
+    in_workshop_count = (
+        WorkOrder.objects.filter(
+            check_in_at__isnull=False,
+            check_in_at__lte=today,
+        )
+        .exclude(
+            status__in=[
+                WorkOrder.OrderStatus.SCHEDULED,
+                WorkOrder.OrderStatus.COMPLETED,
+                WorkOrder.OrderStatus.VERIFIED,
+                WorkOrder.OrderStatus.CANCELLED,
+            ]
+        )
+        .values("vehicle")
+        .distinct()
+        .count()
+    )
 
     # Contamos los vehículos que tienen una programación a futuro
-    scheduled_count = WorkOrder.objects.filter(
-        status=WorkOrder.OrderStatus.SCHEDULED,
-        scheduled_start__isnull=False,
-        scheduled_start__gt=today
-    ).values('vehicle').distinct().count()
+    scheduled_count = (
+        WorkOrder.objects.filter(
+            status=WorkOrder.OrderStatus.SCHEDULED,
+            scheduled_start__isnull=False,
+            scheduled_start__gt=today,
+        )
+        .values("vehicle")
+        .distinct()
+        .count()
+    )
+
+    # Vehículos disponibles sin OT activa
+    active_statuses = [
+        WorkOrder.OrderStatus.SCHEDULED,
+        WorkOrder.OrderStatus.IN_RECEPTION,
+        WorkOrder.OrderStatus.IN_SERVICE,
+        WorkOrder.OrderStatus.WAITING_PART,
+        WorkOrder.OrderStatus.PENDING_APPROVAL,
+        WorkOrder.OrderStatus.STOPPED_BY_CLIENT,
+        WorkOrder.OrderStatus.IN_ROAD_TEST,
+    ]
+
+    available_count = (
+        Vehicle.objects.exclude(workorder__status__in=active_statuses)
+        .distinct()
+        .count()
+    )
 
     if extra_context is None:
         extra_context = {}
-    
+
     # Pasamos los contadores a la plantilla
-    extra_context['in_workshop_count'] = in_workshop_count
-    extra_context['scheduled_count'] = scheduled_count
-    
+    extra_context["in_workshop_count"] = in_workshop_count
+    extra_context["scheduled_count"] = scheduled_count
+    extra_context["available_count"] = available_count
+
     return original_index(request, extra_context)
 
 admin.site.index = custom_index
@@ -44,6 +79,7 @@ admin.site.index = custom_index
 urlpatterns = [
     # NUEVO: rutas HTML de OT dentro del admin (ANTES del include del admin)
     path('admin/workorders/', include('workorders.admin_urls')),
+    path('admin/fleet/', include('fleet.admin_urls')),
 
     path('admin/', admin.site.urls),
     

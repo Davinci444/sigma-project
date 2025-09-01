@@ -23,13 +23,18 @@
         <h2>Vista Operativa del Taller</h2>
         <ul style="list-style-type: none; padding-left: 0;">
             <li style="margin-bottom: 10px;">
-                <a href="{% url 'admin:workorders_workorder_changelist' %}?operational_status=in_workshop" class="button" style="padding: 10px 15px; font-size: 14px;">
+                <a href="{% url 'vehicles_in_workshop' %}" class="button" style="padding: 10px 15px; font-size: 14px;">
                     Ver Vehículos en Taller ({{ in_workshop_count }})
                 </a>
             </li>
-            <li>
-                <a href="{% url 'admin:workorders_workorder_changelist' %}?operational_status=scheduled" class="button" style="padding: 10px 15px; font-size: 14px;">
+            <li style="margin-bottom: 10px;">
+                <a href="{% url 'vehicles_scheduled' %}" class="button" style="padding: 10px 15px; font-size: 14px;">
                     Ver Vehículos Programados ({{ scheduled_count }})
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'vehicles_available' %}" class="button" style="padding: 10px 15px; font-size: 14px;">
+                    Ver Vehículos Disponibles ({{ available_count }})
                 </a>
             </li>
         </ul>

@@ -9,8 +9,6 @@
             <th>Placa</th>
             <th>Marca</th>
             <th>Modelo</th>
-            <th>Kilometraje</th>
-            <th>Notas</th>
           </tr>
         </thead>
         <tbody>
@@ -19,14 +17,12 @@
               <td>{{ v.plate }}</td>
               <td>{{ v.brand }}</td>
               <td>{{ v.model }}</td>
-              <td>{{ v.current_odometer_km|default:"—" }}</td>
-              <td>{{ v.notes|default:"" }}</td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <p>No hay vehículos en reparación.</p>
+      <p>No hay vehículos disponibles.</p>
     {% endif %}
   </div>
 {% endblock %}
