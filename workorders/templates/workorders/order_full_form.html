@@ -138,7 +138,7 @@
         <!-- Quick create de categorías/subcategorías -->
         <div class="qc" style="margin-bottom:10px;">
           {% if qc_category %}
-          <form method="post">
+          <form method="post" style="margin:0">
             {% csrf_token %}
             <input type="hidden" name="qc_target" value="category">
             <input type="text" name="name" placeholder="Nueva categoría" required>
@@ -146,7 +146,7 @@
           </form>
           {% endif %}
           {% if qc_subcategory %}
-          <form method="post">
+          <form method="post" style="margin:0">
             {% csrf_token %}
             <input type="hidden" name="qc_target" value="subcategory">
             <input type="text" name="name" placeholder="Nueva subcategoría" required>

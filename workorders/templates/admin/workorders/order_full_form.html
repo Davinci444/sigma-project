@@ -73,9 +73,9 @@
         {% if form.fields.actual_start %}<div><label>Entrada real</label>{{ form.actual_start }}</div>{% endif %}
         {% if form.fields.actual_end %}<div><label>Salida real</label>{{ form.actual_end }}</div>{% endif %}
 
-        {% for fname in datetime_real_fields %}
-          {% if fname != 'actual_start' and fname != 'actual_end' %}
-          <div><label>{{ fname|capfirst|replace:"_" " " }}</label>{{ form[fname] }}</div>
+        {% for bf in dynamic_dt_bfs %}
+          {% if bf.name != 'actual_start' and bf.name != 'actual_end' %}
+          <div><label>{{ bf.label }}</label>{{ bf }}</div>
           {% endif %}
         {% endfor %}
 
@@ -155,12 +155,11 @@
             <input type="text" name="name" placeholder="Nueva subcategoría" required>
             {% if 'category' in qc_subcategory.fields %}
               <select name="category" required>
-                {% for f in task_fs.forms %}
+                {% for f in task_fs.forms|slice:':1' %}
                   {% if f.fields.category.choices %}
                     {% for val,txt in f.fields.category.choices %}
                       {% if val %}<option value="{{ val }}">{{ txt }}</option>{% endif %}
                     {% endfor %}
-                    {% break %}
                   {% endif %}
                 {% endfor %}
               </select>
