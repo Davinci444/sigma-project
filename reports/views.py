@@ -32,8 +32,8 @@ def vehicle_costs_report(request):
     writer.writerow([
         "Placa",
         "Marca",
+        "Línea",
         "Modelo",
-        "Año",
         "Costo Total MO Interna",
         "Costo Total MO Terceros",
         "Costo Total Repuestos",
@@ -56,8 +56,8 @@ def vehicle_costs_report(request):
             [
                 vehicle.plate,
                 vehicle.brand,
-                vehicle.model,
-                vehicle.year,
+                vehicle.linea,
+                vehicle.modelo,
                 cost_internal,
                 cost_external,
                 cost_parts,

@@ -51,7 +51,7 @@ class VehicleAdmin(admin.ModelAdmin):
         "fuel_type",
         EnTallerFilter,
     )
-    search_fields = ("plate", "vin", "brand", "model")
+    search_fields = ("plate", "vin", "brand", "linea", "modelo")
     ordering = ("plate",)
 
     def usuario_gestor_asignado(self, obj: Vehicle):
