@@ -16,6 +16,15 @@ class Vehicle(models.Model):
     class OdometerStatus(models.TextChoices):
         VALID = 'VALID', 'Válido'
         INVALID = 'INVALID', 'Inválido (Reportado en Novedades)'
+
+    class VehicleType(models.TextChoices):
+        AUTOMOVIL = 'AUTOMOVIL', 'Automóvil'
+        MICROBUS = 'MICROBUS', 'Microbús'
+        BUS = 'BUS', 'Bus'
+        CAMION = 'CAMION', 'Camión'
+        CAMIONETA = 'CAMIONETA', 'Camioneta'
+        TRACTOMULA = 'TRACTOMULA', 'Tractomula'
+        MOTOCICLETA = 'MOTOCICLETA', 'Motocicleta'
     
     plate = models.CharField("Placa", max_length=10, unique=True)
     vin = models.CharField("VIN", max_length=17, unique=True, blank=True, null=True)
@@ -24,12 +33,8 @@ class Vehicle(models.Model):
     modelo = models.PositiveIntegerField("Modelo")
     vehicle_type = models.CharField(
         "Tipo de Vehículo",
-        max_length=10,
-        choices=[
-            ("AUTOMOVIL", "Automóvil"),
-            ("MICROBUS", "Microbús"),
-            ("BUS", "Bus"),
-        ],
+        max_length=50,
+        choices=VehicleType.choices,
         help_text="Seleccione el tipo de vehículo",
     )
     fuel_type = models.CharField("Tipo de Combustible", max_length=20, choices=FuelType.choices, default=FuelType.DIESEL)
