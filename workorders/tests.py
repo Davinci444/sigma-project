@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from core.models import Zone
 from fleet.models import Vehicle
 from .models import WorkOrder
+from .forms import WorkOrderUnifiedForm
 
 
 @override_settings(MIGRATION_MODULES={"fleet": None})
@@ -53,3 +54,26 @@ class WorkOrderUnifiedViewTests(TestCase):
         wo = WorkOrder.objects.get()
         self.assertEqual(wo.order_type, WorkOrder.OrderType.CORRECTIVE)
         self.assertEqual(wo.pre_diagnosis, "Initial diagnosis")
+
+    def test_can_create_in_progress_order(self):
+        """IN_PROGRESS should be a valid status option."""
+        url = reverse("workorders_unified_new") + "?type=corrective"
+        data = {
+            "vehicle": str(self.vehicle.id),
+            "status": WorkOrder.OrderStatus.IN_PROGRESS,
+            "priority": WorkOrder.Priority.MEDIUM,
+            "description": "Testing IN_PROGRESS status", 
+            "tasks-TOTAL_FORMS": "0",
+            "tasks-INITIAL_FORMS": "0",
+            "tasks-MIN_NUM_FORMS": "0",
+            "tasks-MAX_NUM_FORMS": "1000",
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        wo = WorkOrder.objects.get(description="Testing IN_PROGRESS status")
+        self.assertEqual(wo.status, WorkOrder.OrderStatus.IN_PROGRESS)
+
+    def test_form_includes_in_progress_choice(self):
+        form = WorkOrderUnifiedForm()
+        choices = [c[0] for c in form.fields["status"].choices]
+        self.assertIn(WorkOrder.OrderStatus.IN_PROGRESS, choices)

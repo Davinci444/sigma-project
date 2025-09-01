@@ -10,16 +10,25 @@ original_index = admin.site.index
 def custom_index(request, extra_context=None):
     from django.utils import timezone
     from workorders.models import WorkOrder
-    
+
     today = timezone.now()
-    
+    in_shop_statuses = [
+        WorkOrder.OrderStatus.IN_PROGRESS,
+        WorkOrder.OrderStatus.WAITING_PART,
+        WorkOrder.OrderStatus.IN_ROAD_TEST,
+    ]
+
     # Contamos los vehículos que ya ingresaron al taller
-    in_workshop_count = WorkOrder.objects.filter(
-        check_in_at__isnull=False,
-        check_in_at__lte=today
-    ).exclude(
-        status__in=[WorkOrder.OrderStatus.COMPLETED]
-    ).values('vehicle').distinct().count()
+    in_workshop_count = (
+        WorkOrder.objects.filter(
+            check_in_at__isnull=False,
+            check_in_at__lte=today,
+            status__in=in_shop_statuses,
+        )
+        .values("vehicle")
+        .distinct()
+        .count()
+    )
 
     # Contamos los vehículos que tienen una programación a futuro
     scheduled_count = WorkOrder.objects.filter(

@@ -160,6 +160,7 @@ class WorkOrder(models.Model):
     class OrderStatus(models.TextChoices):
         SCHEDULED = "SCHEDULED", "Programada"
         WAITING_PART = "WAITING_PART", "Espera Repuesto"
+        IN_PROGRESS = "IN_PROGRESS", "En progreso"
         IN_ROAD_TEST = "IN_ROAD_TEST", "Prueba de Ruta"
         COMPLETED = "COMPLETED", "Completada"
 
