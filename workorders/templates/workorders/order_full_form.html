@@ -43,6 +43,9 @@
       {% endif %}
 
       <form method="post">
+        {% if form.non_field_errors %}
+        <div class="errornote">{{ form.non_field_errors }}</div>
+        {% endif %}
         {% csrf_token %}
 
       <!-- Datos base -->
