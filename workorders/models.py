@@ -257,7 +257,7 @@ class WorkOrder(models.Model):
             internal=Sum("hours_spent", filter=Q(is_external=False)),
             external=Sum("labor_rate", filter=Q(is_external=True)),
         )
-        internal_rate = 50000  # TODO: parametrizar
+        internal_rate = settings.WORKORDER_INTERNAL_RATE
         self.labor_cost_internal = (labor_costs["internal"] or 0) * internal_rate
         self.labor_cost_external = labor_costs["external"] or 0
 
