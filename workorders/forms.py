@@ -100,6 +100,32 @@ class WorkOrderUnifiedForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Inicializar conductor existente
+        if (
+            Driver
+            and WorkOrderDriver
+            and self.instance
+            and getattr(self.instance, "pk", None)
+            and 'driver' in self.fields
+            and 'driver_responsibility' in self.fields
+        ):
+            try:
+                wod = (
+                    WorkOrderDriver.objects
+                    .filter(work_order=self.instance)
+                    .select_related('driver')
+                    .first()
+                )
+                if wod:
+                    self.fields['driver'].initial = getattr(wod, 'driver', None)
+                    self.fields['driver_responsibility'].initial = getattr(
+                        wod,
+                        'responsibility_percent',
+                        None,
+                    )
+            except Exception:
+                pass
+
         # Campos datetime reales si existen
         for fname in self.dynamic_datetime_fields:
             if _field_exists(WorkOrder, fname):
@@ -139,6 +165,8 @@ class WorkOrderUnifiedForm(forms.ModelForm):
                     work_order=instance, driver=driver,
                     defaults={'responsibility_percent': resp}
                 )
+            else:
+                WorkOrderDriver.objects.filter(work_order=instance).delete()
 
         # Comentario inicial -> WorkOrderNote
         comment = self.cleaned_data.get('first_comment')
