@@ -12,7 +12,7 @@
     <h2 style="margin-top:24px;">Novedades de OT</h2>
     {% if original.notes.all %}
       <ul>
-        {% for n in original.notes.all|dictsortreversed:"created_at" %}
+        {% for n in original.notes.all %}
           <li><em>{{ n.created_at }}</em> — {{ n.text }}</li>
         {% endfor %}
       </ul>
@@ -21,3 +21,9 @@
     {% endif %}
   </div>
   {% else %}
+  <div class="module aligned" style="margin-top:24px;">
+    <p>Para crear una nueva OT usa la interfaz unificada:</p>
+    <p><a class="button" href="{% url 'workorders_unified_new' %}">Nueva OT</a></p>
+  </div>
+  {% endif %}
+{% endblock %}
