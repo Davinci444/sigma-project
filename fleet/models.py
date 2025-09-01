@@ -20,9 +20,18 @@ class Vehicle(models.Model):
     plate = models.CharField("Placa", max_length=10, unique=True)
     vin = models.CharField("VIN", max_length=17, unique=True, blank=True, null=True)
     brand = models.CharField("Marca", max_length=50)
-    model = models.CharField("Modelo", max_length=50)
-    year = models.PositiveIntegerField("Año")
-    vehicle_type = models.CharField("Tipo de Vehículo", max_length=50, help_text="Ej: Camión, Auto, Moto")
+    linea = models.CharField("Línea", max_length=50)
+    modelo = models.PositiveIntegerField("Modelo")
+    vehicle_type = models.CharField(
+        "Tipo de Vehículo",
+        max_length=10,
+        choices=[
+            ("AUTOMOVIL", "Automóvil"),
+            ("MICROBUS", "Microbús"),
+            ("BUS", "Bus"),
+        ],
+        help_text="Seleccione el tipo de vehículo",
+    )
     fuel_type = models.CharField("Tipo de Combustible", max_length=20, choices=FuelType.choices, default=FuelType.DIESEL)
     status = models.CharField("Estado", max_length=20, choices=VehicleStatus.choices, default=VehicleStatus.ACTIVE)
     
@@ -41,7 +50,7 @@ class Vehicle(models.Model):
         super().save(*args, **kwargs) # Llamamos al método de guardado original
 
     def __str__(self):
-        return f"{self.brand} {self.model} ({self.plate})"
+        return f"{self.brand} {self.linea} ({self.plate})"
     class Meta:
         verbose_name = "Vehículo"
         verbose_name_plural = "Vehículos"
