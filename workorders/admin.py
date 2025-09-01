@@ -1,5 +1,8 @@
 # workorders/admin.py
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html_join
+
 from .models import (
     WorkOrder,
     WorkOrderNote,
@@ -18,6 +21,7 @@ class WorkOrderAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "vehicle",
+        "driver_links",
         "order_type",
         "status",
         "priority",
@@ -25,9 +29,28 @@ class WorkOrderAdmin(admin.ModelAdmin):
         "scheduled_end",
     )
     search_fields = ("id", "vehicle__plate", "vehicle__vin")
-    list_filter = ("order_type", "status", "priority")
+    list_filter = (
+        "order_type",
+        "status",
+        "priority",
+        "drivers",
+        ("scheduled_start", admin.DateFieldListFilter),
+        ("scheduled_end", admin.DateFieldListFilter),
+    )
     raw_id_fields = ()  # sin lupas
     inlines = [WorkOrderTaskInline]
+
+    def driver_links(self, obj):
+        links = (
+            (
+                reverse("admin:users_driver_change", args=[driver.pk]),
+                driver.full_name,
+            )
+            for driver in obj.drivers.all()
+        )
+        return format_html_join(", ", '<a href="{}">{}</a>', links) or "-"
+
+    driver_links.short_description = "Conductores"
 
 @admin.register(WorkOrderNote)
 class WorkOrderNoteAdmin(admin.ModelAdmin):
