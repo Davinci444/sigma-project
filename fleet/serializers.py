@@ -6,6 +6,7 @@ from .models import Vehicle
 
 class VehicleSerializer(serializers.ModelSerializer):
     """Serializer for :class:`~fleet.models.Vehicle`."""
+    vehicle_type = serializers.ChoiceField(choices=Vehicle.VehicleType.choices)
 
     class Meta:
         model = Vehicle
