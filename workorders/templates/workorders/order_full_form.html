@@ -5,6 +5,7 @@
 
 {% block extrastyle %}
   {{ block.super }}
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/css/select2.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="{% static 'workorders/order_full_form.css' %}">
 {% endblock %}
 
@@ -29,8 +30,6 @@
         <div class="form-row">
           <label>Tipo de OT</label>{{ form.order_type }}
         </div>
-        <div class="form-row">
-          <label>Vehículo *</label>{{ form.vehicle }}
           {% if qc_vehicle %}
           <div class="qc">
             <form method="post">
@@ -94,10 +93,7 @@
 
       <!-- Conductor -->
       {% if form.fields.driver %}
-      <fieldset class="module aligned">
-        <h2>Conductor</h2>
-        <div class="form-row">
-          <label>Conductor responsable</label>{{ form.driver }}
+
           {% if qc_driver %}
           <div class="qc">
             <form method="post">
@@ -174,8 +170,8 @@
         <tbody>
           {% for f in task_fs %}
           <tr>
-            <td>{{ f.category }}</td>
-            <td>{{ f.subcategory }}</td>
+            <td>{{ f.category }}<span class="search-icon">🔍</span></td>
+            <td>{{ f.subcategory }}<span class="search-icon">🔍</span></td>
             <td>{{ f.description }}</td>
             <td>{{ f.hours_spent }}</td>
             <td>{{ f.is_external }}</td>
@@ -190,8 +186,8 @@
         </div>
         <template id="task-empty-form">
           <tr>
-            <td>{{ task_fs.empty_form.category }}</td>
-            <td>{{ task_fs.empty_form.subcategory }}</td>
+            <td>{{ task_fs.empty_form.category }}<span class="search-icon">🔍</span></td>
+            <td>{{ task_fs.empty_form.subcategory }}<span class="search-icon">🔍</span></td>
             <td>{{ task_fs.empty_form.description }}</td>
             <td>{{ task_fs.empty_form.hours_spent }}</td>
             <td>{{ task_fs.empty_form.is_external }}</td>
@@ -229,17 +225,66 @@
 {% endblock %}
 
 {% block extrahead %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
   <script>
-    function toggleCorrective() {
-      var sel = document.getElementById('id_order_type');
-      var section = document.getElementById('corrective-section');
-      if (!sel || !section) return;
-      section.style.display = sel.value === 'CORRECTIVE' ? 'block' : 'none';
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-      toggleCorrective();
-      var sel = document.getElementById('id_order_type');
-      if (sel) sel.addEventListener('change', toggleCorrective);
-    });
+    (function($) {
+      function toggleCorrective() {
+        var sel = $('#id_order_type');
+        var section = $('#corrective-section');
+        if (!sel.length || !section.length) return;
+        section.toggle(sel.val() === 'CORRECTIVE');
+      }
+
+      function initSelect($el) {
+        var url = $el.data('url');
+        $el.select2({
+          ajax: {
+            url: url,
+            dataType: 'json',
+            delay: 250,
+            data: function(params) { return { search: params.term }; },
+            processResults: function(data) {
+              var results = data.results || data;
+              return {
+                results: results.map(function(obj) {
+                  var text = obj.plate || obj.full_name || obj.name;
+                  return { id: obj.id, text: text };
+                })
+              };
+            }
+          },
+          width: 'style'
+        });
+        var icon = $el.next('.search-icon');
+        if (icon.length) {
+          icon.on('click', function() { $el.select2('open'); });
+        }
+      }
+
+      function initAll(ctx) {
+        $(ctx).find('select.select2-ajax').each(function() {
+          initSelect($(this));
+        });
+      }
+
+      $(function() {
+        toggleCorrective();
+        $('#id_order_type').on('change', toggleCorrective);
+
+        initAll(document);
+
+        $('#add-task-btn').on('click', function() {
+          var totalForms = $('#id_tasks-TOTAL_FORMS');
+          var tableBody = $('#tasks-table tbody');
+          var tmpl = $('#task-empty-form').html();
+          var idx = parseInt(totalForms.val(), 10);
+          tableBody.append(tmpl.replace(/__prefix__/g, idx));
+          totalForms.val(idx + 1);
+          var newRow = tableBody.find('tr').last();
+          initAll(newRow);
+        });
+      });
+    })(django.jQuery);
   </script>
 {% endblock %}

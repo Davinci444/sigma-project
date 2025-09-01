@@ -39,3 +39,8 @@
     color: var(--body-quiet-color);
 }
 
+.search-icon {
+    cursor: pointer;
+    margin-left: 4px;
+}
+

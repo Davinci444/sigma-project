@@ -7,14 +7,23 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
 
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
 
-from .models import WorkOrder, MaintenancePlan, WorkOrderTask, WorkOrderPart
+from .models import (
+    WorkOrder,
+    MaintenancePlan,
+    WorkOrderTask,
+    WorkOrderPart,
+    MaintenanceCategory,
+    MaintenanceSubcategory,
+)
 from .serializers import (
     WorkOrderSerializer,
     MaintenancePlanSerializer,
     WorkOrderTaskSerializer,
     WorkOrderPartSerializer,
+    MaintenanceCategorySerializer,
+    MaintenanceSubcategorySerializer,
 )
 from .forms import (
     WorkOrderUnifiedForm, TaskFormSet,
@@ -40,6 +49,20 @@ class WorkOrderPartViewSet(viewsets.ModelViewSet):
 class MaintenancePlanViewSet(viewsets.ModelViewSet):
     queryset = MaintenancePlan.objects.all()
     serializer_class = MaintenancePlanSerializer
+
+
+class MaintenanceCategoryViewSet(viewsets.ModelViewSet):
+    queryset = MaintenanceCategory.objects.all()
+    serializer_class = MaintenanceCategorySerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name"]
+
+
+class MaintenanceSubcategoryViewSet(viewsets.ModelViewSet):
+    queryset = MaintenanceSubcategory.objects.select_related("category")
+    serializer_class = MaintenanceSubcategorySerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name", "category__name"]
 
 
 # ========= VISTA UNIFICADA =========

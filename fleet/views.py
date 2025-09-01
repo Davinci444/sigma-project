@@ -1,6 +1,6 @@
 """Viewsets for the fleet application."""
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from .models import Vehicle
@@ -12,6 +12,8 @@ class VehicleViewSet(viewsets.ModelViewSet):
 
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["plate", "vin", "brand", "linea"]
 
     def _handle_request(self, request, partial=False, instance=None):
         serializer = self.get_serializer(
