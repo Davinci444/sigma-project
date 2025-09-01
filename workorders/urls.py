@@ -10,12 +10,14 @@ from .views import (
     MaintenanceCategoryViewSet,
     MaintenanceSubcategoryViewSet,
     workorder_unified,
+    quick_create,
     new_preventive, new_corrective, edit_tasks,
     schedule_view,
 )
 
 # --------- HTML UNIFICADO (no admin; compatibilidad) ---------
 urlpatterns = [
+    path("workorders/qc/<str:target>/", quick_create, name="workorders_quick_create"),
     path("workorders/new/", workorder_unified, name="workorders_unified_new"),
     path("workorders/<int:pk>/edit/", workorder_unified, name="workorders_unified_edit"),
 

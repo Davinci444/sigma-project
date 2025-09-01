@@ -81,44 +81,7 @@ def workorder_unified(request, pk=None):
         elif t.lower().startswith("prev"):
             initial["order_type"] = WorkOrder.OrderType.PREVENTIVE
 
-    # ---- Quick-Create (crear sin salir) ----
-    if request.method == "POST" and request.POST.get("qc_target"):
-        target = request.POST.get("qc_target")
-        try:
-            if target == "vehicle":
-                form = QuickCreateVehicleForm(request.POST)
-                if form.is_valid():
-                    obj = form.save()
-                    messages.success(request, f"Vehículo {obj} creado.")
-                else:
-                    messages.error(request, "No se pudo crear el vehículo. Revisa los campos.")
-            elif target == "driver":
-                form = QuickCreateDriverForm(request.POST)
-                if form.is_valid():
-                    obj = form.save()
-                    messages.success(request, "Conductor creado.")
-                else:
-                    messages.error(request, "No se pudo crear el conductor. Revisa los campos.")
-            elif target == "category":
-                form = QuickCreateCategoryForm(request.POST)
-                if form.is_valid():
-                    obj = form.save()
-                    messages.success(request, "Categoría creada.")
-                else:
-                    messages.error(request, "No se pudo crear la categoría. Revisa los campos.")
-            elif target == "subcategory":
-                form = QuickCreateSubcategoryForm(request.POST)
-                if form.is_valid():
-                    obj = form.save()
-                    messages.success(request, "Subcategoría creada.")
-                else:
-                    messages.error(request, "No se pudo crear la subcategoría. Revisa los campos.")
-            else:
-                messages.error(request, "Acción no reconocida.")
-        except Exception as e:
-            logger.exception("Quick-Create falló: %s", e)
-            messages.error(request, "Error al crear. Verifica los campos mínimos requeridos del modelo.")
-        return redirect(request.path if not pk else request.path)
+    # Quick-Create ahora se maneja en la vista separada ``quick_create``.
 
     # ---- Flujo normal crear/editar OT ----
     if request.method == "POST":
@@ -198,12 +161,55 @@ def workorder_unified(request, pk=None):
         "title": ("Editar OT" if ot else "Nueva OT"),
         "manual": manual,
         "show_corrective": show_corrective,
+        # Nombre de URL para quick create (depende si estamos en el admin)
+        "qc_url_name": "workorders_admin_qc" if request.path.startswith("/admin/") else "workorders_quick_create",
         # Quick-create forms (si existen)
         "qc_vehicle": QuickCreateVehicleForm() if QuickCreateVehicleForm._meta.fields else None,
         "qc_driver": QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None,
         "qc_category": QuickCreateCategoryForm() if QuickCreateCategoryForm._meta.fields else None,
         "qc_subcategory": QuickCreateSubcategoryForm() if QuickCreateSubcategoryForm._meta.fields else None,
     })
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def quick_create(request, target: str):
+    """Crea entidades relacionadas desde formularios secundarios y redirige."""
+    try:
+        if target == "vehicle":
+            form = QuickCreateVehicleForm(request.POST)
+            if form.is_valid():
+                obj = form.save()
+                messages.success(request, f"Vehículo {obj} creado.")
+            else:
+                messages.error(request, "No se pudo crear el vehículo. Revisa los campos.")
+        elif target == "driver":
+            form = QuickCreateDriverForm(request.POST)
+            if form.is_valid():
+                obj = form.save()
+                messages.success(request, "Conductor creado.")
+            else:
+                messages.error(request, "No se pudo crear el conductor. Revisa los campos.")
+        elif target == "category":
+            form = QuickCreateCategoryForm(request.POST)
+            if form.is_valid():
+                obj = form.save()
+                messages.success(request, "Categoría creada.")
+            else:
+                messages.error(request, "No se pudo crear la categoría. Revisa los campos.")
+        elif target == "subcategory":
+            form = QuickCreateSubcategoryForm(request.POST)
+            if form.is_valid():
+                obj = form.save()
+                messages.success(request, "Subcategoría creada.")
+            else:
+                messages.error(request, "No se pudo crear la subcategoría. Revisa los campos.")
+        else:
+            messages.error(request, "Acción no reconocida.")
+    except Exception as e:
+        logger.exception("Quick-Create falló: %s", e)
+        messages.error(request, "Error al crear. Verifica los campos mínimos requeridos del modelo.")
+    return redirect(request.META.get("HTTP_REFERER", reverse("workorders_unified_new")))
 
 
 # ========= Compatibilidad/rutas viejas: redirigen aquí =========
