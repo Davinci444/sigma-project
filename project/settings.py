@@ -103,3 +103,6 @@ LOGGING = {
     'handlers': {'console': {'class': 'logging.StreamHandler'}},
     'root': {'handlers': ['console'], 'level': 'INFO'},
 }
+
+# Tarifa por hora para trabajos internos en órdenes de trabajo
+WORKORDER_INTERNAL_RATE = 50000
