@@ -1,5 +1,6 @@
 # workorders/admin.py
 from django.contrib import admin
+from django.shortcuts import redirect
 from .models import (
     WorkOrder,
     WorkOrderNote,
@@ -28,6 +29,9 @@ class WorkOrderAdmin(admin.ModelAdmin):
     list_filter = ("order_type", "status", "priority")
     raw_id_fields = ()  # sin lupas
     inlines = [WorkOrderTaskInline]
+
+    def add_view(self, request, form_url="", extra_context=None):
+        return redirect("workorders_admin_new")
 
 @admin.register(WorkOrderNote)
 class WorkOrderNoteAdmin(admin.ModelAdmin):
