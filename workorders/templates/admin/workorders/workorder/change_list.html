@@ -2,9 +2,10 @@
 {% load i18n %}
 
 {% block object-tools-items %}
-    <li><a href="{% url 'workorders_admin_new' %}" class="addlink">{% trans "Nueva OT" %}</a></li>
+    {% if has_add_permission %}
+        <li><a href="{% url 'workorders_admin_new' %}" class="addlink">{% trans "Nueva OT" %}</a></li>
+    {% endif %}
     <li><a href="{% url 'workorders_schedule' %}" class="historylink">{% trans "Programación" %}</a></li>
-    {{ block.super }}
 {% endblock %}
 
 {% block result_list %}

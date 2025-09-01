@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 
 from core.models import Zone
 from fleet.models import Vehicle
-from .models import WorkOrder
+from ..models import WorkOrder
 
 
 @override_settings(MIGRATION_MODULES={"fleet": None})

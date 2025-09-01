@@ -1,5 +1,6 @@
 # workorders/admin.py
 from django.contrib import admin
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import format_html_join
 
@@ -39,6 +40,9 @@ class WorkOrderAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ()  # sin lupas
     inlines = [WorkOrderTaskInline]
+
+    def add_view(self, request, form_url="", extra_context=None):
+        return redirect("workorders_admin_new")
 
     def driver_links(self, obj):
         links = (
