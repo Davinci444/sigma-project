@@ -145,6 +145,23 @@ def workorder_unified(request, pk=None):
     datetime_real_names = [f for f in form_cls.dynamic_datetime_fields if f in form.fields]
     dynamic_dt_bfs = [form[name] for name in datetime_real_names]
 
+    # Manual de mantenimiento del vehículo seleccionado
+    vehicle_id = (
+        request.POST.get("vehicle")
+        or request.GET.get("vehicle")
+        or (ot.vehicle_id if ot else None)
+    )
+    manual = None
+    if vehicle_id:
+        plan = (
+            MaintenancePlan.objects
+            .filter(vehicle_id=vehicle_id)
+            .select_related("manual")
+            .first()
+        )
+        if plan:
+            manual = plan.manual
+
     return render(request, "workorders/order_full_form.html", {
         "form": form,
         "task_fs": task_fs,
@@ -152,6 +169,7 @@ def workorder_unified(request, pk=None):
         "ot": ot,
         "dynamic_dt_bfs": dynamic_dt_bfs,  # ← usar esto en la plantilla
         "title": ("Editar OT" if ot else "Nueva OT"),
+        "manual": manual,
         # Quick-create forms (si existen)
         "qc_vehicle": QuickCreateVehicleForm() if QuickCreateVehicleForm._meta.fields else None,
         "qc_driver": QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None,
