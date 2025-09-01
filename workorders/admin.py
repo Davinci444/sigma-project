@@ -1,26 +1,33 @@
 # workorders/admin.py
 from django.contrib import admin
-from django.shortcuts import redirect
-from django.urls import reverse
 from .models import (
     WorkOrder,
     WorkOrderNote,
     MaintenanceManual,
     ManualTask,
+    WorkOrderTask,
 )
+
+class WorkOrderTaskInline(admin.TabularInline):
+    model = WorkOrderTask
+    extra = 1
+
 
 @admin.register(WorkOrder)
 class WorkOrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "vehicle", "order_type", "status", "priority", "scheduled_start", "scheduled_end")
+    list_display = (
+        "id",
+        "vehicle",
+        "order_type",
+        "status",
+        "priority",
+        "scheduled_start",
+        "scheduled_end",
+    )
     search_fields = ("id", "vehicle__plate", "vehicle__vin")
     list_filter = ("order_type", "status", "priority")
     raw_id_fields = ()  # sin lupas
-
-    def add_view(self, request, form_url='', extra_context=None):
-        return redirect(reverse("workorders_admin_new"))
-
-    def change_view(self, request, object_id, form_url='', extra_context=None):
-        return redirect(reverse("workorders_admin_edit", args=[object_id]))
+    inlines = [WorkOrderTaskInline]
 
 @admin.register(WorkOrderNote)
 class WorkOrderNoteAdmin(admin.ModelAdmin):
