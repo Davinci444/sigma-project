@@ -118,7 +118,7 @@ def workorder_unified(request, pk=None):
         except Exception as e:
             logger.exception("Quick-Create falló: %s", e)
             messages.error(request, "Error al crear. Verifica los campos mínimos requeridos del modelo.")
-        return redirect(request.path if not pk else request.path)
+        return redirect(request.get_full_path())
 
     # ---- Flujo normal crear/editar OT ----
     if request.method == "POST":
