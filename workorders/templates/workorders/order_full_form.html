@@ -25,12 +25,11 @@
       {% csrf_token %}
 
       <!-- Datos base -->
-      <div class="card grid cols-3">
-        <div>
+      <fieldset class="module aligned">
+        <h2>Datos base</h2>
+        <div class="form-row">
           <label>Tipo de OT</label>{{ form.order_type }}
         </div>
-        <div>
-          <label>Vehículo *</label>{{ form.vehicle }}<span class="search-icon">🔍</span>
           {% if qc_vehicle %}
           <div class="qc">
             <form method="post">
@@ -42,43 +41,43 @@
           </div>
           {% endif %}
         </div>
-        <div>
+        <div class="form-row">
           <label>Estado *</label>{{ form.status }}
         </div>
-        <div>
+        <div class="form-row">
           <label>Prioridad *</label>{{ form.priority }}
         </div>
-        <div>
+        <div class="form-row">
           <label>Inicio programado</label>{{ form.scheduled_start }}
         </div>
-        <div>
+        <div class="form-row">
           <label>Salida estimada</label>{{ form.scheduled_end }}
         </div>
-        <div>
+        <div class="form-row">
           <label>Odómetro al recibir</label>{{ form.odometer_at_service }}
         </div>
 
-        {% if form.fields.actual_start %}<div><label>{{ form.actual_start.label }}</label>{{ form.actual_start }}</div>{% endif %}
-        {% if form.fields.actual_end %}<div><label>{{ form.actual_end.label }}</label>{{ form.actual_end }}</div>{% endif %}
+        {% if form.fields.actual_start %}<div class="form-row"><label>{{ form.actual_start.label }}</label>{{ form.actual_start }}</div>{% endif %}
+        {% if form.fields.actual_end %}<div class="form-row"><label>{{ form.actual_end.label }}</label>{{ form.actual_end }}</div>{% endif %}
 
         {% for bf in dynamic_dt_bfs %}
           {% if bf.name != 'actual_start' and bf.name != 'actual_end' %}
-          <div><label>{{ bf.label }}</label>{{ bf }}</div>
+          <div class="form-row"><label>{{ bf.label }}</label>{{ bf }}</div>
           {% endif %}
         {% endfor %}
 
-        <div class="cols-2" style="grid-column:1/-1">
+        <div class="form-row">
           <label>Descripción del problema / trabajo</label>{{ form.description }}
         </div>
 
         <!-- Campos de costo general (solo si existen en el form) -->
-        {% if form.fields.is_external %}<div><label>{{ form.is_external.label }}</label>{{ form.is_external }}</div>{% endif %}
-        {% if form.fields.external_vendor %}<div><label>{{ form.external_vendor.label }}</label>{{ form.external_vendor }}</div>{% endif %}
-        {% if form.fields.external_cost %}<div><label>{{ form.external_cost.label }}</label>{{ form.external_cost }}</div>{% endif %}
-        {% if form.fields.service_cost %}<div><label>{{ form.service_cost.label }}</label>{{ form.service_cost }}</div>{% endif %}
-        {% if form.fields.total_cost %}<div><label>{{ form.total_cost.label }}</label>{{ form.total_cost }}</div>{% endif %}
+        {% if form.fields.is_external %}<div class="form-row"><label>{{ form.is_external.label }}</label>{{ form.is_external }}</div>{% endif %}
+        {% if form.fields.external_vendor %}<div class="form-row"><label>{{ form.external_vendor.label }}</label>{{ form.external_vendor }}</div>{% endif %}
+        {% if form.fields.external_cost %}<div class="form-row"><label>{{ form.external_cost.label }}</label>{{ form.external_cost }}</div>{% endif %}
+        {% if form.fields.service_cost %}<div class="form-row"><label>{{ form.service_cost.label }}</label>{{ form.service_cost }}</div>{% endif %}
+        {% if form.fields.total_cost %}<div class="form-row"><label>{{ form.total_cost.label }}</label>{{ form.total_cost }}</div>{% endif %}
         {% if manual %}
-        <div style="grid-column:1/-1">
+        <div class="form-row">
           <label>Manual de mantenimiento</label>
           <p>{{ manual.name }}</p>
           {% if manual.tasks.all %}
@@ -90,13 +89,11 @@
           {% endif %}
         </div>
         {% endif %}
-      </div>
+      </fieldset>
 
       <!-- Conductor -->
       {% if form.fields.driver %}
-      <div class="card grid cols-2">
-        <div>
-          <label>Conductor responsable</label>{{ form.driver }}<span class="search-icon">🔍</span>
+
           {% if qc_driver %}
           <div class="qc">
             <form method="post">
@@ -115,25 +112,23 @@
           </div>
           {% endif %}
         </div>
-        <div>
+        <div class="form-row">
           <label>% responsabilidad</label>{{ form.driver_responsibility }}
         </div>
-      </div>
+      </fieldset>
       {% endif %}
 
       <!-- Sección Correctivo -->
-      <div class="card" id="corrective-section"{% if not show_corrective %} style="display:none"{% endif %}>
+      <fieldset class="module aligned" id="corrective-section"{% if not show_corrective %} style="display:none"{% endif %}>
         <h2 class="section-title"><span class="badge">Solo Correctivo</span> Diagnóstico</h2>
-        <div class="grid cols-3">
-          <div><label>Severidad</label>{{ form.severity }}</div>
-          <div><label>Origen de la falla</label>{{ form.failure_origin }}</div>
-          <div style="grid-column:1/-1"><label>Pre-diagnóstico</label>{{ form.pre_diagnosis }}</div>
-          <div style="grid-column:1/-1"><label>Causas probables</label>{{ form.probable_causes }}</div>
-        </div>
-      </div>
+        <div class="form-row"><label>Severidad</label>{{ form.severity }}</div>
+        <div class="form-row"><label>Origen de la falla</label>{{ form.failure_origin }}</div>
+        <div class="form-row"><label>Pre-diagnóstico</label>{{ form.pre_diagnosis }}</div>
+        <div class="form-row"><label>Causas probables</label>{{ form.probable_causes }}</div>
+      </fieldset>
 
       <!-- Tareas -->
-      <div class="card">
+      <fieldset class="module aligned">
         <h2 class="section-title">Tareas (categoría / subcategoría)</h2>
 
         <!-- Quick create de categorías/subcategorías -->
@@ -200,29 +195,26 @@
             <td>{{ task_fs.empty_form.DELETE }}</td>
           </tr>
         </template>
-      </div>
+      </fieldset>
 
       <!-- Novedades -->
-      <div class="card">
+      <fieldset class="module aligned">
         <h2 class="section-title">Novedades de OT</h2>
-        <div class="grid cols-2">
-          <div>
-            <p class="muted">Las novedades nuevas se agregan desde “Comentario inicial” al guardar.</p>
-            <div class="submit-row"><input type="submit" value="Guardar" class="default"></div>
-          </div>
-          <div>
-            {% if notes %}
-              <ul>
-                {% for n in notes %}
-                  <li><span class="muted">{{ n.created_at|date:"Y-m-d H:i" }}</span> — {{ n.text }}</li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="muted">Aún no hay novedades.</p>
-            {% endif %}
-          </div>
+        <div class="form-row">
+          <p class="muted">Las novedades nuevas se agregan desde “Comentario inicial” al guardar.</p>
         </div>
-      </div>
+        <div class="form-row">
+          {% if notes %}
+            <ul>
+              {% for n in notes %}
+                <li><span class="muted">{{ n.created_at|date:"Y-m-d H:i" }}</span> — {{ n.text }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">Aún no hay novedades.</p>
+          {% endif %}
+        </div>
+      </fieldset>
 
         <div class="submit-row">
           <input type="submit" value="Guardar" class="default">
