@@ -27,8 +27,7 @@ class Vehicle(models.Model):
         AUTOMOVIL = 'AUTOMOVIL', 'Automóvil'
         MICROBUS = 'MICROBUS', 'Microbús'
         BUS = 'BUS', 'Bus'
-        CAMIONETA = 'CAMIONETA', 'Camioneta'
-        BUSETA = 'BUSETA', 'Buseta'
+
     
     plate = models.CharField("Placa", max_length=10, unique=True)
     vin = models.CharField("VIN", max_length=17, unique=True, blank=True, null=True)
@@ -37,9 +36,7 @@ class Vehicle(models.Model):
     modelo = models.PositiveIntegerField("Modelo")
     vehicle_type = models.CharField(
         "Tipo de Vehículo",
-        max_length=20,
-        choices=VehicleType.choices,
-        help_text="Seleccione el tipo de vehículo: Automóvil, Microbús, Bus, Camioneta o Buseta",
+
     )
     fuel_type = models.CharField("Tipo de Combustible", max_length=20, choices=FuelType.choices, default=FuelType.DIESEL)
     status = models.CharField("Estado", max_length=20, choices=VehicleStatus.choices, default=VehicleStatus.ACTIVE)
