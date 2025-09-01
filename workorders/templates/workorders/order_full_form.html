@@ -89,6 +89,19 @@
         {% if form.fields.external_cost %}<div><label>{{ form.external_cost.label }}</label>{{ form.external_cost }}</div>{% endif %}
         {% if form.fields.service_cost %}<div><label>{{ form.service_cost.label }}</label>{{ form.service_cost }}</div>{% endif %}
         {% if form.fields.total_cost %}<div><label>{{ form.total_cost.label }}</label>{{ form.total_cost }}</div>{% endif %}
+        {% if manual %}
+        <div style="grid-column:1/-1">
+          <label>Manual de mantenimiento</label>
+          <p>{{ manual.name }}</p>
+          {% if manual.tasks.all %}
+          <ul>
+            {% for mt in manual.tasks.all %}
+            <li>{{ mt.km_interval }} km - {{ mt.description }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
 
       <!-- Conductor -->
