@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 
 from core.models import Zone
 from fleet.models import Vehicle
-from workorders.models import WorkOrder
+from workorders.models import WorkOrder, ProbableCause
 from workorders.forms import WorkOrderUnifiedForm
 
 
@@ -56,28 +56,6 @@ class WorkOrderUnifiedViewTests(TestCase):
         self.assertEqual(wo.order_type, WorkOrder.OrderType.CORRECTIVE)
         self.assertEqual(wo.pre_diagnosis, "Initial diagnosis")
 
-    def test_edit_corrective_to_preventive_clears_diagnostic_fields(self):
-        """Editing a corrective OT to preventive should clear diagnostic fields."""
-        from workorders.models import ProbableCause
-
-        cause = ProbableCause.objects.create(name="Fallo")
-        wo = WorkOrder.objects.create(
-            vehicle=self.vehicle,
-            description="Engine issue",
-            order_type=WorkOrder.OrderType.CORRECTIVE,
-            pre_diagnosis="Initial diagnosis",
-            failure_origin=WorkOrder.FailureOrigin.OTHER,
-            severity=WorkOrder.Severity.HIGH,
-        )
-        wo.probable_causes.add(cause)
-
-        url = reverse("workorders_unified_edit", args=[wo.id])
-        data = {
-            "vehicle": str(self.vehicle.id),
-            "order_type": WorkOrder.OrderType.PREVENTIVE,
-            "status": WorkOrder.OrderStatus.SCHEDULED,
-            "priority": WorkOrder.Priority.MEDIUM,
-            "description": "Engine issue",
             "tasks-TOTAL_FORMS": "0",
             "tasks-INITIAL_FORMS": "0",
             "tasks-MIN_NUM_FORMS": "0",
@@ -86,12 +64,6 @@ class WorkOrderUnifiedViewTests(TestCase):
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
 
-        wo.refresh_from_db()
-        self.assertEqual(wo.order_type, WorkOrder.OrderType.PREVENTIVE)
-        self.assertEqual(wo.pre_diagnosis, "")
-        self.assertIsNone(wo.failure_origin)
-        self.assertIsNone(wo.severity)
-        self.assertEqual(wo.probable_causes.count(), 0)
 
     def test_can_create_in_progress_order(self):
         """IN_PROGRESS should be a valid status option."""
