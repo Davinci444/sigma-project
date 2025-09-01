@@ -7,6 +7,8 @@ from .views import (
     MaintenancePlanViewSet,
     WorkOrderTaskViewSet,
     WorkOrderPartViewSet,
+    MaintenanceCategoryViewSet,
+    MaintenanceSubcategoryViewSet,
     workorder_unified,
     new_preventive, new_corrective, edit_tasks,
     schedule_view,
@@ -30,5 +32,7 @@ router.register(r"workorders", WorkOrderViewSet)
 router.register(r"plans", MaintenancePlanViewSet)
 router.register(r"tasks", WorkOrderTaskViewSet)
 router.register(r"parts", WorkOrderPartViewSet)
+router.register(r"categories", MaintenanceCategoryViewSet, basename="category")
+router.register(r"subcategories", MaintenanceSubcategoryViewSet, basename="subcategory")
 
 urlpatterns += [ path("", include(router.urls)) ]

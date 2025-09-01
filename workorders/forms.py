@@ -3,6 +3,7 @@ from django import forms
 from django.forms import inlineformset_factory
 from django.core.exceptions import FieldDoesNotExist
 from django.apps import apps
+from django.urls import reverse_lazy
 
 from .models import (
     WorkOrder, WorkOrderTask, WorkOrderNote, ProbableCause
@@ -46,7 +47,13 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         driver = forms.ModelChoiceField(
             label="Conductor responsable",
             queryset=getattr(Driver, "objects", Driver) if hasattr(Driver, "objects") else [],
-            required=False
+            required=False,
+            widget=forms.Select(
+                attrs={
+                    "class": "select2-ajax",
+                    "data-url": reverse_lazy("driver-list"),
+                }
+            ),
         )
         driver_responsibility = forms.DecimalField(
             label="Responsabilidad del conductor (%)",
@@ -92,6 +99,9 @@ class WorkOrderUnifiedForm(forms.ModelForm):
             # Campos de costo general si tu modelo los trae (se añaden abajo dinámicamente)
         ]
         widgets = {
+            'vehicle': forms.Select(
+                attrs={'class': 'select2-ajax', 'data-url': reverse_lazy('vehicle-list')}
+            ),
             'scheduled_start': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'scheduled_end': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'description': forms.Textarea(attrs={'rows':3}),
@@ -217,6 +227,14 @@ class WorkOrderUnifiedForm(forms.ModelForm):
 TaskFormSet = inlineformset_factory(
     WorkOrder, WorkOrderTask,
     fields=['category','subcategory','description','hours_spent','is_external','labor_rate'],
+    widgets={
+        'category': forms.Select(attrs={
+            'class': 'select2-ajax', 'data-url': reverse_lazy('category-list')
+        }),
+        'subcategory': forms.Select(attrs={
+            'class': 'select2-ajax', 'data-url': reverse_lazy('subcategory-list')
+        }),
+    },
     extra=1, can_delete=True
 )
 
