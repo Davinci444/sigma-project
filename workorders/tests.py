@@ -35,9 +35,8 @@ class WorkOrderUnifiedViewTests(TestCase):
 
     def test_corrective_order_saves_diagnostic(self):
         """Creating a corrective OT should persist the diagnostic field."""
-        url = reverse("workorders_unified_new")
+        url = reverse("workorders_unified_new") + "?type=corrective"
         data = {
-            "order_type": WorkOrder.OrderType.CORRECTIVE,
             "vehicle": str(self.vehicle.id),
             "status": WorkOrder.OrderStatus.SCHEDULED,
             "priority": WorkOrder.Priority.MEDIUM,

@@ -5,7 +5,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.apps import apps
 
 from .models import (
-    WorkOrder, WorkOrderTask, WorkOrderNote
+    WorkOrder, WorkOrderTask, WorkOrderNote, ProbableCause
 )
 
 # -------- Utilidades seguras --------
@@ -72,9 +72,11 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         label="Comentario inicial (opcional)",
         required=False, widget=forms.Textarea(attrs={'rows':2})
     )
-    probable_causes = forms.CharField(
+    probable_causes = forms.ModelMultipleChoiceField(
         label="Causas probables (opcional, solo correctivo)",
-        required=False, widget=forms.Textarea(attrs={'rows':2})
+        queryset=ProbableCause.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple
     )
 
     # Campos datetime “reales” si existen en tu modelo
@@ -97,6 +99,32 @@ class WorkOrderUnifiedForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Inicializar conductor existente
+        if (
+            Driver
+            and WorkOrderDriver
+            and self.instance
+            and getattr(self.instance, "pk", None)
+            and 'driver' in self.fields
+            and 'driver_responsibility' in self.fields
+        ):
+            try:
+                wod = (
+                    WorkOrderDriver.objects
+                    .filter(work_order=self.instance)
+                    .select_related('driver')
+                    .first()
+                )
+                if wod:
+                    self.fields['driver'].initial = getattr(wod, 'driver', None)
+                    self.fields['driver_responsibility'].initial = getattr(
+                        wod,
+                        'responsibility_percent',
+                        None,
+                    )
+            except Exception:
+                pass
 
         # Campos datetime reales si existen
         for fname in self.dynamic_datetime_fields:
@@ -137,8 +165,10 @@ class WorkOrderUnifiedForm(forms.ModelForm):
                     work_order=instance, driver=driver,
                     defaults={'responsibility_percent': resp}
                 )
+            else:
+                WorkOrderDriver.objects.filter(work_order=instance).delete()
 
-        # Comentario inicial y causas -> WorkOrderNote
+        # Comentario inicial -> WorkOrderNote
         comment = self.cleaned_data.get('first_comment')
         if comment:
             note = WorkOrderNote(text=comment, work_order=instance)
@@ -149,11 +179,8 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         causas = self.cleaned_data.get('probable_causes')
         ot_val = str(self.cleaned_data.get('order_type')).upper()
         ot_is_corrective = ("CORRECTIVE" in ot_val or "CORRECTIV" in ot_val)
-        if causas and ot_is_corrective:
-            note = WorkOrderNote(text=f"Causas probables: {causas}", work_order=instance)
-            if _field_exists(WorkOrderNote, "author") and user is not None:
-                setattr(note, "author", user)
-            note.save()
+        if ot_is_corrective:
+            instance.probable_causes.set(causas or [])
 
         # Guardar campos correctivo si existen en el modelo
         if ot_is_corrective:
@@ -197,15 +224,29 @@ class PreventiveWorkOrderForm(WorkOrderUnifiedForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Se fuerza el tipo y se oculta el campo correspondiente
+        self.fields.pop('order_type', None)
         # Eliminar campos relacionados al flujo correctivo
         for fname in ("pre_diagnosis", "failure_origin", "severity", "probable_causes"):
             self.fields.pop(fname, None)
 
+    def save(self, user=None, commit=True):
+        # Asignar automáticamente el tipo preventivo antes de guardar
+        self.cleaned_data['order_type'] = WorkOrder.OrderType.PREVENTIVE
+        return super().save(user=user, commit=commit)
+
 
 class CorrectiveWorkOrderForm(WorkOrderUnifiedForm):
     """Formulario para órdenes correctivas (incluye diagnóstico, severidad y causas)."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Se fuerza el tipo y se oculta el campo correspondiente
+        self.fields.pop('order_type', None)
 
-    pass
+    def save(self, user=None, commit=True):
+        # Asignar automáticamente el tipo correctivo antes de guardar
+        self.cleaned_data['order_type'] = WorkOrder.OrderType.CORRECTIVE
+        return super().save(user=user, commit=commit)
 
 # ---------- Formset de TAREAS (categoría/subcategoría) ----------
 TaskFormSet = inlineformset_factory(

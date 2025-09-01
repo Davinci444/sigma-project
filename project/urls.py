@@ -18,7 +18,7 @@ def custom_index(request, extra_context=None):
         check_in_at__isnull=False,
         check_in_at__lte=today
     ).exclude(
-        status__in=[WorkOrder.OrderStatus.VERIFIED, WorkOrder.OrderStatus.CANCELLED]
+        status__in=[WorkOrder.OrderStatus.COMPLETED]
     ).values('vehicle').distinct().count()
 
     # Contamos los vehículos que tienen una programación a futuro

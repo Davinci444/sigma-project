@@ -19,8 +19,6 @@ class EnTallerFilter(admin.SimpleListFilter):
                 workorder__check_in_at__isnull=False
             ).exclude(
                 workorder__status__in=[
-                    WorkOrder.OrderStatus.VERIFIED,
-                    WorkOrder.OrderStatus.CANCELLED,
                     WorkOrder.OrderStatus.COMPLETED,
                 ]
             ).distinct()
@@ -28,8 +26,6 @@ class EnTallerFilter(admin.SimpleListFilter):
             return qs.exclude(
                 Q(workorder__check_in_at__isnull=False)
                 & ~Q(workorder__status__in=[
-                    WorkOrder.OrderStatus.VERIFIED,
-                    WorkOrder.OrderStatus.CANCELLED,
                     WorkOrder.OrderStatus.COMPLETED,
                 ])
             ).distinct()
@@ -70,8 +66,6 @@ class VehicleAdmin(admin.ModelAdmin):
             check_in_at__isnull=False
         ).exclude(
             status__in=[
-                WorkOrder.OrderStatus.VERIFIED,
-                WorkOrder.OrderStatus.CANCELLED,
                 WorkOrder.OrderStatus.COMPLETED,
             ]
         ).exists()
