@@ -11,7 +11,11 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-  <a href="{% url 'admin:index' %}">Panel</a>
+  {% if is_admin %}
+    <a href="{% url 'admin:index' %}">Panel</a>
+  {% else %}
+    <a href="{% url 'workorders_unified_new' %}">Órdenes</a>
+  {% endif %}
   &rsaquo; {{ title }}{% if ot %} #{{ ot.id }}{% endif %}
 </div>
 {% endblock %}
@@ -216,10 +220,16 @@
         </div>
       </fieldset>
 
-        <div class="submit-row">
-          <input type="submit" value="Guardar" class="default">
-          {% if ot %}<a href="{% url 'admin:index' %}" class="button">Panel</a>{% endif %}
-        </div>
+      <div class="submit-row">
+        <input type="submit" value="Guardar" class="default">
+        {% if ot %}
+          {% if is_admin %}
+            <a href="{% url 'admin:index' %}" class="button">Panel</a>
+          {% else %}
+            <a href="{% url 'workorders_unified_edit' ot.id %}" class="button">Ver OT</a>
+          {% endif %}
+        {% endif %}
+      </div>
       </form>
     </div>
 {% endblock %}

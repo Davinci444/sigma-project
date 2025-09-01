@@ -7,8 +7,8 @@ from django.contrib.auth import get_user_model
 
 from core.models import Zone
 from fleet.models import Vehicle
-from .models import WorkOrder
-from .forms import WorkOrderUnifiedForm
+from workorders.models import WorkOrder
+from workorders.forms import WorkOrderUnifiedForm
 
 
 @override_settings(MIGRATION_MODULES={"fleet": None})
@@ -39,6 +39,7 @@ class WorkOrderUnifiedViewTests(TestCase):
         url = reverse("workorders_unified_new") + "?type=corrective"
         data = {
             "vehicle": str(self.vehicle.id),
+            "order_type": WorkOrder.OrderType.CORRECTIVE,
             "status": WorkOrder.OrderStatus.SCHEDULED,
             "priority": WorkOrder.Priority.MEDIUM,
             "description": "Engine issue",
@@ -60,9 +61,10 @@ class WorkOrderUnifiedViewTests(TestCase):
         url = reverse("workorders_unified_new") + "?type=corrective"
         data = {
             "vehicle": str(self.vehicle.id),
+            "order_type": WorkOrder.OrderType.CORRECTIVE,
             "status": WorkOrder.OrderStatus.IN_PROGRESS,
             "priority": WorkOrder.Priority.MEDIUM,
-            "description": "Testing IN_PROGRESS status", 
+            "description": "Testing IN_PROGRESS status",
             "tasks-TOTAL_FORMS": "0",
             "tasks-INITIAL_FORMS": "0",
             "tasks-MIN_NUM_FORMS": "0",
@@ -77,3 +79,25 @@ class WorkOrderUnifiedViewTests(TestCase):
         form = WorkOrderUnifiedForm()
         choices = [c[0] for c in form.fields["status"].choices]
         self.assertIn(WorkOrder.OrderStatus.IN_PROGRESS, choices)
+
+    def test_breadcrumb_links_change_with_route(self):
+        admin_url = reverse("workorders_admin_new")
+        ext_url = reverse("workorders_unified_new")
+
+        resp_admin = self.client.get(admin_url)
+        self.assertContains(resp_admin, f'href="{reverse("admin:index")}"')
+
+        resp_ext = self.client.get(ext_url)
+        self.assertContains(resp_ext, f'href="{ext_url}"')
+
+    def test_bottom_button_links_change_with_route(self):
+        wo = WorkOrder.objects.create(vehicle=self.vehicle, description="Test")
+
+        admin_edit = reverse("workorders_admin_edit", args=[wo.id])
+        ext_edit = reverse("workorders_unified_edit", args=[wo.id])
+
+        resp_admin = self.client.get(admin_edit)
+        self.assertContains(resp_admin, f'href="{reverse("admin:index")}"')
+
+        resp_ext = self.client.get(ext_edit)
+        self.assertContains(resp_ext, f'href="{ext_edit}"')

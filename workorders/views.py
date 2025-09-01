@@ -203,6 +203,7 @@ def workorder_unified(request, pk=None):
         "qc_driver": QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None,
         "qc_category": QuickCreateCategoryForm() if QuickCreateCategoryForm._meta.fields else None,
         "qc_subcategory": QuickCreateSubcategoryForm() if QuickCreateSubcategoryForm._meta.fields else None,
+        "is_admin": request.path.startswith("/admin/"),
     })
 
 
