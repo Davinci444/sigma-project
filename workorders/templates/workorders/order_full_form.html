@@ -144,32 +144,66 @@
             <input type="text" name="name" placeholder="Nueva categoría" required>
             <button class="button" type="submit">Crear categoría</button>
           </form>
-          {% endif %}
-          {% if qc_subcategory %}
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="qc_target" value="subcategory">
-            <input type="text" name="name" placeholder="Nueva subcategoría" required>
-              {% if 'category' in qc_subcategory.fields %}
-                <select name="category" required>
-                  {% for f in task_fs.forms|slice:":1" %}
-                    {% if f.fields.category.choices %}
-                      {% for val,txt in f.fields.category.choices %}
-                        {% if val %}<option value="{{ val }}">{{ txt }}</option>{% endif %}
-                      {% endfor %}
-                    {% endif %}
-                  {% endfor %}
-                </select>
-              {% endif %}
-              <button class="button" type="submit">Crear subcategoría</button>
-            </form>
             {% endif %}
-          </div>
+            {% if qc_subcategory %}
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="qc_target" value="subcategory">
+              <input type="text" name="name" placeholder="Nueva subcategoría" required>
+                {% if 'category' in qc_subcategory.fields %}
+                  <select name="category" required>
+                    {% for f in task_fs.forms|slice:":1" %}
+                      {% if f.fields.category.choices %}
+                        {% for val,txt in f.fields.category.choices %}
+                          {% if val %}<option value="{{ val }}">{{ txt }}</option>{% endif %}
+                        {% endfor %}
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                {% endif %}
+                <button class="button" type="submit">Crear subcategoría</button>
+              </form>
+              {% endif %}
+            </div>
 
-          {{ task_fs.management_form }}
-          <table id="tasks-table">
-          <thead>
-            <tr><th>Categoría</th><th>Subcategoría</th><th>Descripción</th><th>Horas</th><th>Tercero</th><th>Tarifa</th><th>Eliminar</th></tr>
+            {% if categories %}
+            <div class="catalog" style="margin-bottom:10px;">
+              <h3>Catálogo existente</h3>
+              <ul>
+                {% for cat in categories %}
+                <li>
+                  {{ cat.name }}
+                  {% if perms.workorders.change_maintenancecategory %}
+                    <a href="{% url 'admin:workorders_maintenancecategory_change' cat.id %}">Editar</a>
+                  {% endif %}
+                  {% if perms.workorders.delete_maintenancecategory %}
+                    <a href="{% url 'admin:workorders_maintenancecategory_delete' cat.id %}">Eliminar</a>
+                  {% endif %}
+                  {% if cat.subcategories.all %}
+                  <ul>
+                    {% for sub in cat.subcategories.all %}
+                    <li>
+                      {{ sub.name }}
+                      {% if perms.workorders.change_maintenancesubcategory %}
+                        <a href="{% url 'admin:workorders_maintenancesubcategory_change' sub.id %}">Editar</a>
+                      {% endif %}
+                      {% if perms.workorders.delete_maintenancesubcategory %}
+                        <a href="{% url 'admin:workorders_maintenancesubcategory_delete' sub.id %}">Eliminar</a>
+                      {% endif %}
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+
+            {{ task_fs.management_form }}
+            <table id="tasks-table">
+            <thead>
+              <tr><th>Categoría</th><th>Subcategoría</th><th>Descripción</th><th>Horas</th><th>Tercero</th><th>Tarifa</th><th>Eliminar</th></tr>
           </thead>
         <tbody>
           {% for f in task_fs %}

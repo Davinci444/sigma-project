@@ -25,8 +25,14 @@ def _model_or_none(app_label: str, model_name: str):
 # Intenta resolver modelos externos (si no existen, ocultamos sus secciones)
 Driver = _model_or_none("users", "Driver")
 Vehicle = _model_or_none("fleet", "Vehicle")
-TaskCategory = _model_or_none("workorders", "TaskCategory")
-TaskSubcategory = _model_or_none("workorders", "TaskSubcategory")
+TaskCategory = (
+    _model_or_none("workorders", "TaskCategory")
+    or _model_or_none("workorders", "MaintenanceCategory")
+)
+TaskSubcategory = (
+    _model_or_none("workorders", "TaskSubcategory")
+    or _model_or_none("workorders", "MaintenanceSubcategory")
+)
 WorkOrderDriver = _model_or_none("workorders", "WorkOrderDriver")
 
 # Choices seguros por si el modelo no define enums

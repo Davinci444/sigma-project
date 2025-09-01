@@ -170,6 +170,40 @@
           {% endif %}
         </div>
 
+        {% if categories %}
+        <div class="catalog" style="margin-bottom:10px;">
+          <h3>Catálogo existente</h3>
+          <ul>
+            {% for cat in categories %}
+            <li>
+              {{ cat.name }}
+              {% if perms.workorders.change_maintenancecategory %}
+                <a class="link" href="{% url 'admin:workorders_maintenancecategory_change' cat.id %}">Editar</a>
+              {% endif %}
+              {% if perms.workorders.delete_maintenancecategory %}
+                <a class="link" href="{% url 'admin:workorders_maintenancecategory_delete' cat.id %}">Eliminar</a>
+              {% endif %}
+              {% if cat.subcategories.all %}
+              <ul>
+                {% for sub in cat.subcategories.all %}
+                <li>
+                  {{ sub.name }}
+                  {% if perms.workorders.change_maintenancesubcategory %}
+                    <a class="link" href="{% url 'admin:workorders_maintenancesubcategory_change' sub.id %}">Editar</a>
+                  {% endif %}
+                  {% if perms.workorders.delete_maintenancesubcategory %}
+                    <a class="link" href="{% url 'admin:workorders_maintenancesubcategory_delete' sub.id %}">Eliminar</a>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
         {{ task_fs.management_form }}
         <table>
           <thead>
