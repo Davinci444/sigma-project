@@ -3,37 +3,9 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import WorkOrder, MaintenancePlan, MaintenanceManual, ManualTask
+from .models import WorkOrder, MaintenancePlan, MaintenanceManual
 from core.models import Alert
-
-def _calc_next_due(vehicle, plan):
-    """
-    Calcula próximo mantenimiento sugerido (km objetivo y descripción) usando el manual asociado.
-    """
-    manual = plan.manual or MaintenanceManual.objects.filter(fuel_type=vehicle.fuel_type).first()
-    if not manual:
-        return None, None
-
-    tasks = list(ManualTask.objects.filter(manual=manual).order_by("km_interval"))
-    if not tasks:
-        return None, None
-
-    base_km = plan.last_service_km or 0
-    current_km = vehicle.current_odometer_km or 0
-    delta = max(0, current_km - base_km)
-
-    # próxima tarea >= delta; si no hay, usar período
-    next_task = next((t for t in tasks if t.km_interval >= delta), None)
-    if next_task:
-        next_due_km = base_km + next_task.km_interval
-        desc = next_task.description
-    else:
-        period = tasks[0].km_interval or 10000
-        multiples = (delta // period) + 1
-        next_due_km = base_km + multiples * period
-        desc = f"Ciclo cada {period} km"
-
-    return next_due_km, desc
+from .services import calc_next_due
 
 @receiver(post_save, sender=WorkOrder)
 def update_plan_and_alert_on_preventive_close(sender, instance: WorkOrder, created, **kwargs):
@@ -60,7 +32,7 @@ def update_plan_and_alert_on_preventive_close(sender, instance: WorkOrder, creat
         plan.save()
 
         # Crear/actualizar alerta
-        next_due_km, desc = _calc_next_due(vehicle, plan)
+        next_due_km, desc = calc_next_due(vehicle, plan)
         if next_due_km is None:
             return
 

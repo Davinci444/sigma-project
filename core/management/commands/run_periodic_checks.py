@@ -8,6 +8,7 @@ from django.db import transaction
 from fleet.models import Vehicle
 from core.models import Alert
 from workorders.models import MaintenancePlan
+from workorders.services import calc_next_due
 
 
 class Command(BaseCommand):
@@ -66,44 +67,18 @@ class Command(BaseCommand):
         # Lógica: base = last_service_km (tu “9”); delta = km_actual - base.
         # Manual define tareas con km_interval (10.000, 20.000, ...).
         # Elegimos la siguiente tarea cuyo km_interval >= delta; si no hay, saltamos al próximo ciclo del menor intervalo.
-        plans = (
-            MaintenancePlan.objects.filter(is_active=True)
-            .select_related("vehicle", "manual")
-            .prefetch_related("manual__tasks")
-        )
+        plans = MaintenancePlan.objects.filter(is_active=True).select_related("vehicle", "manual")
 
         for plan in plans:
             v = plan.vehicle
-            manual = plan.manual
-            if not v or not manual:
+            if not v:
                 continue
 
-            tasks = list(manual.tasks.order_by("km_interval"))
-            if not tasks:
+            next_due_km, next_desc = calc_next_due(v, plan)
+            if next_due_km is None:
                 continue
 
-            base_km = plan.last_service_km or 0
             current_km = v.current_odometer_km or 0
-            delta = max(0, current_km - base_km)
-
-            # Buscar próxima tarea
-            next_task = None
-            for t in tasks:
-                if t.km_interval >= delta:
-                    next_task = t
-                    break
-
-            if next_task:
-                next_due_km = base_km + next_task.km_interval
-                next_desc = next_task.description
-            else:
-                # ciclo: usamos el menor intervalo como período
-                period = tasks[0].km_interval or 10000
-                # próximo múltiplo del período
-                multiples = (delta // period) + 1
-                next_due_km = base_km + multiples * period
-                next_desc = f"Ciclo cada {period} km"
-
             km_to_due = next_due_km - current_km
 
             qs_prev = Alert.objects.filter(

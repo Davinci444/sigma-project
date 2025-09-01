@@ -35,25 +35,16 @@ except Exception:
 if MaintenancePlan:
     @admin.register(MaintenancePlan)
     class MaintenancePlanAdmin(admin.ModelAdmin):
-        # Ajusta columnas según tus campos reales:
+        """Basic admin for maintenance plans using real model fields."""
+
         list_display = (
             "id",
-            "name",                   # nombre del manual/plan
-            "fuel_type",              # GASOLINA / DIESEL (si existe)
-            "vehicle_type",           # opcional: tipo de vehículo (si existe)
-            "interval_km",            # km entre servicios (si existe)
-            "interval_days",          # días entre servicios (si existe)
-            "is_active",              # activo/inactivo (si existe)
+            "vehicle",
+            "manual",
+            "last_service_km",
+            "last_service_date",
+            "is_active",
         )
-        search_fields = ("name",)
-        list_filter = ("fuel_type", "is_active")  # quita/añade según tus campos
-        ordering = ("name",)
-
-        # Para no romper nada, lo dejo editable por defecto.
-        # Si quieres que sea solo lectura, descomenta esto:
-        # def has_change_permission(self, request, obj=None):
-        #     return False
-        # def has_add_permission(self, request):
-        #     return False
-        # def has_delete_permission(self, request, obj=None):
-        #     return False
+        search_fields = ("vehicle__plate",)
+        list_filter = ("is_active",)
+        ordering = ("vehicle__plate",)
