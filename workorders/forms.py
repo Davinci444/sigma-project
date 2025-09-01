@@ -5,7 +5,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.apps import apps
 
 from .models import (
-    WorkOrder, WorkOrderTask, WorkOrderNote
+    WorkOrder, WorkOrderTask, WorkOrderNote, ProbableCause
 )
 
 # -------- Utilidades seguras --------
@@ -72,9 +72,11 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         label="Comentario inicial (opcional)",
         required=False, widget=forms.Textarea(attrs={'rows':2})
     )
-    probable_causes = forms.CharField(
+    probable_causes = forms.ModelMultipleChoiceField(
         label="Causas probables (opcional, solo correctivo)",
-        required=False, widget=forms.Textarea(attrs={'rows':2})
+        queryset=ProbableCause.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple
     )
 
     # Campos datetime “reales” si existen en tu modelo
@@ -138,7 +140,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
                     defaults={'responsibility_percent': resp}
                 )
 
-        # Comentario inicial y causas -> WorkOrderNote
+        # Comentario inicial -> WorkOrderNote
         comment = self.cleaned_data.get('first_comment')
         if comment:
             note = WorkOrderNote(text=comment, work_order=instance)
@@ -149,11 +151,8 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         causas = self.cleaned_data.get('probable_causes')
         ot_val = str(self.cleaned_data.get('order_type')).upper()
         ot_is_corrective = ("CORRECTIVE" in ot_val or "CORRECTIV" in ot_val)
-        if causas and ot_is_corrective:
-            note = WorkOrderNote(text=f"Causas probables: {causas}", work_order=instance)
-            if _field_exists(WorkOrderNote, "author") and user is not None:
-                setattr(note, "author", user)
-            note.save()
+        if ot_is_corrective:
+            instance.probable_causes.set(causas or [])
 
         # Guardar campos correctivo si existen en el modelo
         if ot_is_corrective:
