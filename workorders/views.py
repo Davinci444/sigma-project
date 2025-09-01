@@ -2,6 +2,7 @@
 """Vistas API y HTML (unificadas) para órdenes de trabajo."""
 import logging
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
@@ -16,7 +17,7 @@ from .serializers import (
     WorkOrderPartSerializer,
 )
 from .forms import (
-    WorkOrderUnifiedForm, TaskFormSet,
+    PreventiveWorkOrderForm, CorrectiveWorkOrderForm, TaskFormSet,
     QuickCreateVehicleForm, QuickCreateDriverForm,
     QuickCreateCategoryForm, QuickCreateSubcategoryForm
 )
@@ -47,6 +48,16 @@ def workorder_unified(request, pk=None):
     """Una sola pantalla: datos base, conductor, (correctivo) prediagnóstico/origen/severidad,
     tareas (categoría/subcategoría) y novedades. SIN evidencias."""
     ot = get_object_or_404(WorkOrder, pk=pk) if pk else None
+
+    # Determinar qué formulario usar (preventivo o correctivo)
+    form_cls = PreventiveWorkOrderForm
+    if ot:
+        if str(ot.order_type).upper().startswith("CORRECT"):
+            form_cls = CorrectiveWorkOrderForm
+    else:
+        t = request.GET.get("type", "")
+        if t.lower().startswith("corr"):
+            form_cls = CorrectiveWorkOrderForm
 
     # ---- Quick-Create (crear sin salir) ----
     if request.method == "POST" and request.POST.get("qc_target"):
@@ -90,7 +101,7 @@ def workorder_unified(request, pk=None):
     # ---- Flujo normal crear/editar OT ----
     if request.method == "POST":
         try:
-            form = WorkOrderUnifiedForm(request.POST, instance=ot)
+            form = form_cls(request.POST, instance=ot)
             if ot:
                 task_fs = TaskFormSet(request.POST, instance=ot, prefix="tasks")
             else:
@@ -122,16 +133,16 @@ def workorder_unified(request, pk=None):
         except Exception as e:
             logger.exception("Error al procesar OT unificada: %s", e)
             messages.error(request, "Se produjo un error al guardar la OT. Revisa los datos y vuelve a intentar.")
-            form = WorkOrderUnifiedForm(request.POST, instance=ot)
+            form = form_cls(request.POST, instance=ot)
             task_fs = TaskFormSet(request.POST, instance=ot or None, prefix="tasks")
     else:
-        form = WorkOrderUnifiedForm(instance=ot)
+        form = form_cls(instance=ot)
         task_fs = TaskFormSet(instance=ot, prefix="tasks") if ot else TaskFormSet(prefix="tasks")
 
     notes = ot.notes.order_by("-created_at") if ot and hasattr(ot, "notes") else []
 
     # BoundFields de los datetime “reales” (para no usar form[fname] en plantilla)
-    datetime_real_names = [f for f in WorkOrderUnifiedForm.dynamic_datetime_fields if f in form.fields]
+    datetime_real_names = [f for f in form_cls.dynamic_datetime_fields if f in form.fields]
     dynamic_dt_bfs = [form[name] for name in datetime_real_names]
 
     return render(request, "workorders/order_full_form.html", {
@@ -152,11 +163,11 @@ def workorder_unified(request, pk=None):
 # ========= Compatibilidad/rutas viejas: redirigen aquí =========
 @require_http_methods(["GET", "POST"])
 def new_preventive(request):
-    return redirect("workorders_unified_new")
+    return redirect(f"{reverse('workorders_unified_new')}?type=preventive")
 
 @require_http_methods(["GET", "POST"])
 def new_corrective(request):
-    return redirect("workorders_unified_new")
+    return redirect(f"{reverse('workorders_unified_new')}?type=corrective")
 
 @require_http_methods(["GET", "POST"])
 def edit_tasks(request, pk: int):
