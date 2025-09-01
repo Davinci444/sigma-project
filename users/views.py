@@ -1,6 +1,6 @@
 """Viewsets for the users application."""
 
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
 
 from .models import Driver, UserProfile
 from .serializers import DriverSerializer, UserProfileSerializer
@@ -11,6 +11,8 @@ class DriverViewSet(viewsets.ModelViewSet):
 
     queryset = Driver.objects.all()
     serializer_class = DriverSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["full_name", "document_number"]
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):
