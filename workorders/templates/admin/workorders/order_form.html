@@ -1,36 +1,48 @@
 <!-- templates/workorders/order_form.html -->
-{% load static %}
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>{{ title }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="{% static 'admin/css/base.css' %}" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { padding: 16px; }
-    .row { margin-bottom: 12px; }
-    label { display:block; font-weight:600; margin-bottom:4px; }
-    input, select, textarea { width:100%; padding:8px; }
-    .btn { background:#0b6; color:#fff; padding:10px 14px; border:none; cursor:pointer; }
+    :root{--bg:#0b1324;--card:#101a34;--text:#e8eefc;--muted:#a9b7d9;--acc:#37d39a;}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:980px;margin:24px auto;padding:16px}
+    h1{margin:0 0 16px}
+    .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 20px rgba(0,0,0,.2)}
+    label{display:block;margin:.5rem 0 .25rem;font-weight:600}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #273253;background:#0d1730;color:var(--text)}
+    .grid{display:grid;gap:12px}
+    @media(min-width:720px){.grid.cols-2{grid-template-columns:1fr 1fr}}
+    .actions{display:flex;gap:12px;margin-top:14px}
+    .btn{background:var(--acc);color:#04111c;border:none;padding:12px 16px;border-radius:12px;font-weight:700;cursor:pointer}
+    a.link{color:var(--muted)}
+    .help{color:var(--muted);font-size:.9rem}
   </style>
 </head>
 <body>
-  <h1>{{ title }}</h1>
-  <form method="post">
-    {% csrf_token %}
-    {% for field in form %}
-      <div class="row">
-        <label>{{ field.label }}{% if field.field.required %} *{% endif %}</label>
-        {{ field }}
-        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
-        {% for e in field.errors %}<div style="color:#b00">{{ e }}</div>{% endfor %}
-      </div>
-    {% endfor %}
-    <button class="btn" type="submit">Guardar y continuar</button>
-  </form>
-  <p style="margin-top:16px;">
-    <a href="{% url 'admin:index' %}">Volver al panel</a>
-  </p>
+  <div class="wrap">
+    <h1>{{ title }}</h1>
+    <div class="card">
+      <form method="post">
+        {% csrf_token %}
+        <div class="grid cols-2">
+          {% for field in form %}
+            <div>
+              <label>{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+              {% for e in field.errors %}<div style="color:#ff8d8d">{{ e }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+        <div class="actions">
+          <button class="btn" type="submit">Guardar y continuar</button>
+          <a class="link" href="/admin/">Volver al Panel</a>
+        </div>
+      </form>
+    </div>
+  </div>
 </body>
 </html>

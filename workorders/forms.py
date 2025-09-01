@@ -5,6 +5,7 @@ from .models import WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderDriv
 from users.models import Driver
 
 class WorkOrderBaseForm(forms.ModelForm):
+    # Conductor y responsabilidad
     driver = forms.ModelChoiceField(
         label="Conductor responsable",
         queryset=Driver.objects.filter(is_active=True),
@@ -23,15 +24,18 @@ class WorkOrderBaseForm(forms.ModelForm):
         model = WorkOrder
         fields = [
             'vehicle', 'order_type', 'status', 'priority',
-            'scheduled_start', 'scheduled_end', 'odometer_at_service'
+            'scheduled_start', 'scheduled_end', 'odometer_at_service',
+            'description'
         ]
         widgets = {
             'scheduled_start': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'scheduled_end': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'description': forms.Textarea(attrs={'rows':3}),
         }
 
     def save(self, user=None, commit=True):
         instance = super().save(commit=commit)
+        # Vincula conductor (si viene)
         driver = self.cleaned_data.get('driver')
         resp = self.cleaned_data.get('driver_responsibility')
         if driver:
@@ -39,6 +43,7 @@ class WorkOrderBaseForm(forms.ModelForm):
                 work_order=instance, driver=driver,
                 defaults={'responsibility_percent': resp}
             )
+        # Comentario inicial
         comment = self.cleaned_data.get('first_comment')
         if comment:
             from .models import WorkOrderNote

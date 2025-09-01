@@ -1,4 +1,4 @@
-# project/settings.py (Versión robusta con MEDIA y logs)
+# project/settings.py (producción en Render, admin con estilos)
 
 import os
 from pathlib import Path
@@ -10,11 +10,9 @@ IS_PRODUCTION = os.environ.get('RENDER') == 'true'
 if IS_PRODUCTION:
     SECRET_KEY = os.environ.get('SECRET_KEY')
     DEBUG = False
-    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(' ')
-    # Quitar strings vacíos
-    ALLOWED_HOSTS = [h for h in ALLOWED_HOSTS if h]
+    ALLOWED_HOSTS = [h for h in os.environ.get('ALLOWED_HOSTS', '').split(' ') if h]
 else:
-    SECRET_KEY = 'django-insecure-ESTA-LLAVE-ES-SOLO-PARA-DESARROLLO-LOCAL'
+    SECRET_KEY = 'django-insecure-DEV-ONLY'
     DEBUG = True
     ALLOWED_HOSTS = ['*']
 
@@ -27,7 +25,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    'corsheaders',
     'core.apps.CoreConfig',
     'fleet.apps.FleetConfig',
     'inventory.apps.InventoryConfig',
@@ -37,8 +34,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -46,9 +43,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
-    # ⚠️ DESCOMENTA SOLO SI QUIERES LOGS DETALLADOS DE 500 (debug puntual)
-    # 'core.middleware.DumpOnErrorMiddleware',
 ]
 
 ROOT_URLCONF = 'project.urls'
@@ -86,14 +80,15 @@ TIME_ZONE = 'America/Bogota'
 USE_I18N = True
 USE_TZ = True
 
-# Static
-STATIC_URL = '/static/'
+# --- STATIC / MEDIA ---
+STATIC_URL = '/static/'                     # <- CORREGIDO (con slash inicial)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
-# Media (para cuando habilitemos upload real)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Sirve estáticos desde los "finders" aun en producción (admin con CSS sin collectstatic)
+WHITENOISE_USE_FINDERS = True
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -101,11 +96,7 @@ REST_FRAMEWORK = {
     ),
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Logging sobrio a consola (Render)
+# Logging simple a consola (Render)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

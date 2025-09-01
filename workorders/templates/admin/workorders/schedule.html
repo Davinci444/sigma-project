@@ -1,0 +1,63 @@
+<!-- templates/workorders/schedule.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ title }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{--bg:#0b1324;--card:#101a34;--text:#e8eefc;--muted:#a9b7d9}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1100px;margin:24px auto;padding:16px}
+    h1,h2{margin:0 0 10px}
+    .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 20px rgba(0,0,0,.2);margin-bottom:16px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #1b2a52}
+    th{text-align:left}
+    a{color:#8dd2ff}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>{{ title }}</h1>
+
+    <div class="card">
+      <h2>Programadas</h2>
+      <table>
+        <thead><tr><th>Vehículo</th><th>Inicio</th><th>Prioridad</th><th>OT</th></tr></thead>
+        <tbody>
+          {% for ot in scheduled %}
+            <tr>
+              <td>{{ ot.vehicle }}</td>
+              <td>{{ ot.scheduled_start|date:"Y-m-d H:i" }}</td>
+              <td>{{ ot.get_priority_display }}</td>
+              <td><a href="{% url 'workorders_edit_tasks' ot.id %}">Editar</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4">Sin OTs programadas.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>En taller</h2>
+      <table>
+        <thead><tr><th>Vehículo</th><th>Estado</th><th>Desde</th><th>OT</th></tr></thead>
+        <tbody>
+          {% for ot in in_shop %}
+            <tr>
+              <td>{{ ot.vehicle }}</td>
+              <td>{{ ot.get_status_display }}</td>
+              <td>{{ ot.scheduled_start|date:"Y-m-d H:i" }}</td>
+              <td><a href="{% url 'workorders_edit_tasks' ot.id %}">Editar</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4">No hay vehículos en taller.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
