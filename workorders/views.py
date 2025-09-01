@@ -1,13 +1,11 @@
 # workorders/views.py
-"""Vistas API y HTML para órdenes de trabajo."""
+"""Vista unificada para crear/editar OT con todo en la misma página."""
 
-from collections import defaultdict
 from django.shortcuts import render, redirect, get_object_or_404
-from django.utils import timezone
 from django.contrib import messages
-from django.urls import reverse
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
+from django.urls import reverse
 
 from rest_framework import viewsets
 
@@ -17,15 +15,12 @@ from .serializers import (
     WorkOrderTaskSerializer, WorkOrderPartSerializer
 )
 from .forms import (
-    WorkOrderPreventiveForm, WorkOrderCorrectiveForm,
-    TaskFormSet, EvidenceURLFormSet
+    WorkOrderUnifiedForm, TaskFormSet, EvidenceURLFormSet, WorkOrderNoteForm
 )
 
-# =======================
-# API (se mantiene)
-# =======================
+# ========= API existente (intacto) =========
 class WorkOrderViewSet(viewsets.ModelViewSet):
-    queryset = WorkOrder.objects.all().prefetch_related("tasks", "parts_used")
+    queryset = WorkOrder.objects.all().prefetch_related("tasks", "parts_used", "attachments", "notes")
     serializer_class = WorkOrderSerializer
 
 class WorkOrderTaskViewSet(viewsets.ModelViewSet):
@@ -41,106 +36,87 @@ class MaintenancePlanViewSet(viewsets.ModelViewSet):
     serializer_class = MaintenancePlanSerializer
 
 
-# =======================
-# HTML: Programación
-# =======================
+# ========= VISTA UNIFICADA =========
 @staff_member_required
-def schedule_view(request):
+def workorder_unified(request, pk=None):
     """
-    Muestra OTs agrupadas por estado lógico:
-    - Programadas (SCHEDULED)
-    - En taller (IN_RECEPTION / IN_SERVICE / WAITING_PART / PENDING_APPROVAL / STOPPED_BY_CLIENT / IN_ROAD_TEST / DIAGNOSIS)
+    - Si pk es None: crear OT
+    - Si pk existe: editar OT
+    Todo en una pantalla: datos base, conductor, (correctivo) prediagnóstico/origen/severidad,
+    tareas (categoría/subcategoría), evidencias (URL) y novedades.
     """
-    in_shop_status = [
-        WorkOrder.OrderStatus.IN_RECEPTION,
-        WorkOrder.OrderStatus.IN_SERVICE,
-        WorkOrder.OrderStatus.WAITING_PART,
-        WorkOrder.OrderStatus.PENDING_APPROVAL,
-        WorkOrder.OrderStatus.STOPPED_BY_CLIENT,
-        WorkOrder.OrderStatus.IN_ROAD_TEST,
-        getattr(WorkOrder.OrderStatus, "DIAGNOSIS", WorkOrder.OrderStatus.IN_SERVICE),
-    ]
+    instance = get_object_or_404(WorkOrder, pk=pk) if pk else None
 
-    scheduled = (WorkOrder.objects
-                 .filter(status=WorkOrder.OrderStatus.SCHEDULED)
-                 .select_related("vehicle")
-                 .order_by("scheduled_start", "priority", "id"))
+    if request.method == "POST":
+        form = WorkOrderUnifiedForm(request.POST, instance=instance)
+        if instance:
+            task_fs = TaskFormSet(request.POST, instance=instance, prefix="tasks")
+            evid_fs = EvidenceURLFormSet(request.POST, instance=instance, prefix="evid")
+        else:
+            # guardamos luego de crear para enlazar formsets
+            task_fs = None
+            evid_fs = None
 
-    in_shop = (WorkOrder.objects
-               .filter(status__in=in_shop_status)
-               .select_related("vehicle")
-               .order_by("scheduled_start", "priority", "id"))
+        note_form = WorkOrderNoteForm(request.POST, prefix="note")
 
-    return render(request, "workorders/schedule.html", {
-        "scheduled": scheduled,
-        "in_shop": in_shop,
-        "title": "Programación por Estado",
+        if form.is_valid():
+            ot = form.save(user=request.user)
+            # Si era creación, ahora sí instanciamos formsets con la OT
+            if task_fs is None:
+                task_fs = TaskFormSet(request.POST, instance=ot, prefix="tasks")
+                evid_fs = EvidenceURLFormSet(request.POST, instance=ot, prefix="evid")
+
+            if task_fs.is_valid() and evid_fs.is_valid():
+                task_fs.save()
+                evid_fs.save()
+
+                # Novedad (opcional)
+                if note_form.is_valid() and note_form.cleaned_data.get("text"):
+                    note = note_form.save(commit=False)
+                    note.work_order = ot
+                    note.author = request.user
+                    note.save()
+
+                # Recalcular costos si tu modelo lo hace
+                if hasattr(ot, "recalculate_costs"):
+                    ot.recalculate_costs()
+
+                messages.success(request, f"OT #{ot.id} guardada correctamente.")
+                return redirect("workorders_unified_edit", pk=ot.id)
+            else:
+                messages.error(request, "Corrige los errores en Tareas/Evidencias.")
+                instance = ot  # para re-render
+        else:
+            messages.error(request, "Revisa los datos de la Orden de Trabajo.")
+    else:
+        form = WorkOrderUnifiedForm(instance=instance)
+        task_fs = TaskFormSet(instance=instance, prefix="tasks") if instance else TaskFormSet(prefix="tasks")
+        evid_fs = EvidenceURLFormSet(instance=instance, prefix="evid") if instance else EvidenceURLFormSet(prefix="evid")
+        note_form = WorkOrderNoteForm(prefix="note")
+
+    # Novedades existentes
+    notes = instance.notes.order_by("-created_at") if instance and hasattr(instance, "notes") else []
+
+    return render(request, "workorders/order_full_form.html", {
+        "form": form,
+        "task_fs": task_fs,
+        "evid_fs": evid_fs,
+        "note_form": note_form,
+        "notes": notes,
+        "ot": instance,
+        "title": ("Editar OT" if instance else "Nueva OT"),
     })
 
 
-# =======================
-# HTML: Crear OT (Preventiva / Correctiva)
-# =======================
-@staff_member_required
+# ========= REDIRECCIONES desde las rutas viejas =========
+@require_http_methods(["GET", "POST"])
 def new_preventive(request):
-    if request.method == "POST":
-        form = WorkOrderPreventiveForm(request.POST)
-        if form.is_valid():
-            ot = form.save(user=request.user)
-            messages.success(request, f"OT Preventiva #{ot.id} creada.")
-            return redirect("workorders_edit_tasks", pk=ot.id)
-        messages.error(request, "Revisa el formulario.")
-    else:
-        form = WorkOrderPreventiveForm()
-    return render(request, "workorders/order_form.html", {"form": form, "title": "Nueva OT Preventiva"})
+    return redirect("workorders_unified_new")
 
-@staff_member_required
+@require_http_methods(["GET", "POST"])
 def new_corrective(request):
-    if request.method == "POST":
-        form = WorkOrderCorrectiveForm(request.POST)
-        if form.is_valid():
-            ot = form.save(user=request.user)
-            messages.success(request, f"OT Correctiva #{ot.id} creada.")
-            return redirect("workorders_edit_tasks", pk=ot.id)
-        messages.error(request, "Revisa el formulario.")
-    else:
-        form = WorkOrderCorrectiveForm()
-    return render(request, "workorders/order_form.html", {"form": form, "title": "Nueva OT Correctiva"})
+    return redirect("workorders_unified_new")
 
-
-# =======================
-# HTML: Agregar/Editar Tareas + Evidencias URL
-# =======================
-@staff_member_required
+@require_http_methods(["GET", "POST"])
 def edit_tasks(request, pk: int):
-    ot = get_object_or_404(WorkOrder, pk=pk)
-    if request.method == "POST":
-        formset = TaskFormSet(request.POST, instance=ot, prefix="tasks")
-        evidset = EvidenceURLFormSet(request.POST, instance=ot, prefix="evid")
-        if formset.is_valid() and evidset.is_valid():
-            formset.save()
-            evidset.save()
-            ot.recalculate_costs()
-            messages.success(request, "Tareas y evidencias actualizadas.")
-            return redirect("workorders_edit_tasks", pk=ot.id)
-        messages.error(request, "Corrige los errores resaltados.")
-    else:
-        formset = TaskFormSet(instance=ot, prefix="tasks")
-        evidset = EvidenceURLFormSet(instance=ot, prefix="evid")
-    return render(request, "workorders/task_formset.html", {"ot": ot, "formset": formset, "evidset": evidset})
-
-
-# =======================
-# HTML: Hook simple desde admin (opcional)
-# =======================
-@require_http_methods(["POST"])
-@staff_member_required
-def add_evidence_url_from_admin(request, pk: int):
-    ot = get_object_or_404(WorkOrder, pk=pk)
-    formset = EvidenceURLFormSet(request.POST, instance=ot, prefix="evid_admin")
-    if formset.is_valid():
-        formset.save()
-        messages.success(request, "Evidencia registrada.")
-    else:
-        messages.error(request, "URL inválida o faltan datos.")
-    return redirect(reverse("admin:workorders_workorder_change", args=[pk]))
+    return redirect("workorders_unified_edit", pk=pk)

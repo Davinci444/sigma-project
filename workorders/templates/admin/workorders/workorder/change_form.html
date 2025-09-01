@@ -1,55 +1,25 @@
 {% extends "admin/change_form.html" %}
-{% load i18n admin_urls static %}
+{% load i18n admin_urls %}
 
 {% block content %}
   {{ block.super }}
-
   {% if original %}
   <div class="module aligned" style="margin-top:24px;">
-    <h2 style="margin-bottom:8px;">Evidencias del Trabajo (URL)</h2>
-    <p class="help">Agrega enlaces (Drive/Dropbox, etc.). El archivo debe ser accesible con el enlace.</p>
+    <h2 style="margin-bottom:8px;">Editar en interfaz unificada</h2>
+    <p>Para gestionar conductor, tareas, evidencias y diagnóstico en una sola pantalla:</p>
+    <p><a class="button" href="/api/workorders/workorders/{{ original.id }}/edit/">Abrir editor unificado</a></p>
 
-    <form method="post" action="{% url 'workorders_add_evidence_admin' original.id %}" style="margin-bottom:16px;">
-      {% csrf_token %}
-      <input type="hidden" name="evid_admin-TOTAL_FORMS" value="1">
-      <input type="hidden" name="evid_admin-INITIAL_FORMS" value="0">
-      <input type="hidden" name="evid_admin-MIN_NUM_FORMS" value="0">
-      <input type="hidden" name="evid_admin-MAX_NUM_FORMS" value="1000">
-
-      <div class="inline-group">
-        <div class="inline-related">
-          <fieldset class="module aligned">
-            <div class="form-row field-url">
-              <div>
-                <label>URL</label>
-                <input type="url" name="evid_admin-0-url" placeholder="https://..." required>
-              </div>
-            </div>
-            <div class="form-row field-description">
-              <div>
-                <label>Descripción</label>
-                <input type="text" name="evid_admin-0-description" maxlength="200">
-              </div>
-            </div>
-          </fieldset>
-        </div>
-      </div>
-
-      <button class="button default" type="submit">Agregar evidencia</button>
-    </form>
-
-    {% if original.attachments.all %}
-      <div class="inline-group">
-        <h3>Evidencias registradas</h3>
-        <ul>
-        {% for att in original.attachments.all %}
-          <li><a href="{{ att.url }}" target="_blank" rel="noopener">{{ att.url }}</a>{% if att.description %} — {{ att.description }}{% endif %}</li>
+    <h2 style="margin-top:24px;">Novedades de OT</h2>
+    {% if original.notes.all %}
+      <ul>
+        {% for n in original.notes.all|dictsortreversed:"created_at" %}
+          <li><em>{{ n.created_at }}</em> — {{ n.text }}</li>
         {% endfor %}
-        </ul>
-      </div>
+      </ul>
     {% else %}
-      <div class="inline-group"><p style="padding:8px;">Sin evidencias aún.</p></div>
+      <p>No hay novedades.</p>
     {% endif %}
   </div>
   {% endif %}
 {% endblock %}
+ 
