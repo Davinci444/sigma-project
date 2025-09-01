@@ -1,6 +1,7 @@
 # workorders/views.py
 """Vistas API y HTML (unificadas) para órdenes de trabajo."""
 import logging
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib import messages
@@ -9,7 +10,9 @@ from django.views.decorators.http import require_http_methods
 
 from rest_framework import viewsets
 
-from .models import WorkOrder, MaintenancePlan, WorkOrderTask, WorkOrderPart
+from .models import (
+    WorkOrder, MaintenancePlan, WorkOrderTask, WorkOrderPart, MaintenanceCategory
+)
 from .serializers import (
     WorkOrderSerializer,
     MaintenancePlanSerializer,
@@ -165,6 +168,11 @@ def workorder_unified(request, pk=None):
         )
         if plan:
             manual = plan.manual
+    categories = MaintenanceCategory.objects.prefetch_related("subcategories").all()
+    cat_map = {
+        c.id: [{"id": sc.id, "name": sc.name} for sc in c.subcategories.all()]
+        for c in categories
+    }
 
     return render(request, "workorders/order_full_form.html", {
         "form": form,
@@ -175,6 +183,7 @@ def workorder_unified(request, pk=None):
         "title": ("Editar OT" if ot else "Nueva OT"),
         "manual": manual,
         "show_corrective": show_corrective,
+        "category_map": json.dumps(cat_map),
         # Quick-create forms (si existen)
         "qc_vehicle": QuickCreateVehicleForm() if QuickCreateVehicleForm._meta.fields else None,
         "qc_driver": QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None,

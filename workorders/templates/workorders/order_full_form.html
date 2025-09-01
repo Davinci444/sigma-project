@@ -233,16 +233,66 @@
 
 {% block extrahead %}
   <script>
+    const CATEGORY_MAP = {{ category_map|safe }};
+
     function toggleCorrective() {
       var sel = document.getElementById('id_order_type');
       var section = document.getElementById('corrective-section');
       if (!sel || !section) return;
       section.style.display = sel.value === 'CORRECTIVE' ? 'block' : 'none';
     }
+
+    function updateSubcategories(catSelect) {
+      var row = catSelect.closest('tr');
+      if (!row) return;
+      var subSelect = row.querySelector("select[name$='-subcategory']");
+      if (!subSelect) return;
+      var catId = catSelect.value;
+      var current = subSelect.value;
+      subSelect.innerHTML = '<option value="">---------</option>';
+      (CATEGORY_MAP[catId] || []).forEach(function(sc) {
+        var opt = document.createElement('option');
+        opt.value = sc.id;
+        opt.textContent = sc.name;
+        subSelect.appendChild(opt);
+      });
+      if ((CATEGORY_MAP[catId] || []).some(function(sc){return String(sc.id) === current;})) {
+        subSelect.value = current;
+      } else {
+        subSelect.value = '';
+      }
+    }
+
+    function attachCategoryHandler(row) {
+      var catSel = row.querySelector("select[name$='-category']");
+      if (catSel) {
+        catSel.addEventListener('change', function(){ updateSubcategories(catSel); });
+        updateSubcategories(catSel);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       toggleCorrective();
       var sel = document.getElementById('id_order_type');
       if (sel) sel.addEventListener('change', toggleCorrective);
+
+      document.querySelectorAll('#tasks-table tbody tr').forEach(function(tr){
+        attachCategoryHandler(tr);
+      });
+
+      var addBtn = document.getElementById('add-task-btn');
+      var totalForms = document.getElementById('id_tasks-TOTAL_FORMS');
+      var tableBody = document.querySelector('#tasks-table tbody');
+      var tmpl = document.getElementById('task-empty-form');
+      if (addBtn && totalForms && tableBody && tmpl) {
+        addBtn.addEventListener('click', function(){
+          var idx = parseInt(totalForms.value, 10);
+          var newRowHtml = tmpl.innerHTML.replace(/__prefix__/g, idx);
+          tableBody.insertAdjacentHTML('beforeend', newRowHtml);
+          totalForms.value = idx + 1;
+          attachCategoryHandler(tableBody.lastElementChild);
+        });
+      }
     });
   </script>
 {% endblock %}

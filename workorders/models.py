@@ -5,6 +5,7 @@ from django.db.models import Sum, F, ExpressionWrapper, DecimalField, Q
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
+from django.core.exceptions import ValidationError
 
 from fleet.models import Vehicle
 from inventory.models import Part
@@ -294,6 +295,13 @@ class WorkOrderTask(models.Model):
     )
     # Nota: mantenemos el JSON de URLs (histórico); evidencias por archivo vendrán en otra fase
     evidence_urls = models.JSONField("URLs de Evidencias", default=list, blank=True)
+
+    def clean(self):
+        super().clean()
+        if self.subcategory and self.category and self.subcategory.category_id != self.category_id:
+            raise ValidationError({
+                "subcategory": "La subcategoría no pertenece a la categoría seleccionada."
+            })
 
     def __str__(self) -> str:
         return str(self.subcategory) if self.subcategory else self.description

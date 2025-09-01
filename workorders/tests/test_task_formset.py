@@ -2,7 +2,9 @@ from django.urls import reverse
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from fleet.models import Vehicle
-from workorders.models import WorkOrder, WorkOrderTask
+from workorders.models import (
+    WorkOrder, WorkOrderTask, MaintenanceCategory, MaintenanceSubcategory
+)
 
 
 class TaskFormSetTests(TestCase):
@@ -57,3 +59,31 @@ class TaskFormSetTests(TestCase):
         self.assertTrue(
             WorkOrderTask.objects.filter(work_order=ot, description="Task 2").exists()
         )
+
+    def test_subcategory_must_match_category(self):
+        url = reverse("workorders_unified_new") + "?type=corrective"
+        cat1 = MaintenanceCategory.objects.create(name="Motor")
+        cat2 = MaintenanceCategory.objects.create(name="Frenos")
+        sub = MaintenanceSubcategory.objects.create(category=cat2, name="Pastillas")
+        data = {
+            "order_type": WorkOrder.OrderType.CORRECTIVE,
+            "vehicle": self.vehicle.id,
+            "status": WorkOrder.OrderStatus.SCHEDULED,
+            "priority": WorkOrder.Priority.MEDIUM,
+            "description": "Test order",
+            "tasks-TOTAL_FORMS": "1",
+            "tasks-INITIAL_FORMS": "0",
+            "tasks-MIN_NUM_FORMS": "0",
+            "tasks-MAX_NUM_FORMS": "1000",
+            "tasks-0-category": str(cat1.id),
+            "tasks-0-subcategory": str(sub.id),
+            "tasks-0-description": "Task invalid",
+            "tasks-0-hours_spent": "1",
+            "tasks-0-is_external": "",
+            "tasks-0-labor_rate": "",
+            "tasks-0-DELETE": "",
+        }
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("subcategory", response.context["task_fs"].forms[0].errors)
+        self.assertEqual(WorkOrderTask.objects.count(), 0)
