@@ -51,9 +51,11 @@ def workorder_unified(request, pk=None):
 
     # Determinar qué formulario usar (preventivo o correctivo)
     form_cls = PreventiveWorkOrderForm
-    if ot:
-        if str(ot.order_type).upper().startswith("CORRECT"):
-            form_cls = CorrectiveWorkOrderForm
+    post_type = request.POST.get("order_type", "") if request.method == "POST" else ""
+    if post_type.lower().startswith("corr"):
+        form_cls = CorrectiveWorkOrderForm
+    elif ot and str(ot.order_type).upper().startswith("CORRECT"):
+        form_cls = CorrectiveWorkOrderForm
     else:
         t = request.GET.get("type", "")
         if t.lower().startswith("corr"):
