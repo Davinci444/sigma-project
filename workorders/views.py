@@ -198,6 +198,7 @@ def workorder_unified(request, pk=None):
         "title": ("Editar OT" if ot else "Nueva OT"),
         "manual": manual,
         "show_corrective": show_corrective,
+        "use_admin_base": request.path.startswith("/admin/"),
         # Quick-create forms (si existen)
         "qc_vehicle": QuickCreateVehicleForm() if QuickCreateVehicleForm._meta.fields else None,
         "qc_driver": QuickCreateDriverForm() if QuickCreateDriverForm._meta.fields else None,

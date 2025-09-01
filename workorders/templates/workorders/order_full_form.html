@@ -1,4 +1,4 @@
-{% extends "admin/base_site.html" %}
+{% extends use_admin_base|yesno:"admin/base_site.html,base.html" %}
 {% load static %}
 
 {% block title %}{{ title }}{% if ot %} #{{ ot.id }}{% endif %}{% endblock %}
@@ -11,7 +11,11 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-  <a href="{% url 'admin:index' %}">Panel</a>
+  {% if use_admin_base %}
+    <a href="{% url 'admin:index' %}">Panel</a>
+  {% else %}
+    <a href="/">Inicio</a>
+  {% endif %}
   &rsaquo; {{ title }}{% if ot %} #{{ ot.id }}{% endif %}
 </div>
 {% endblock %}
@@ -218,7 +222,13 @@
 
         <div class="submit-row">
           <input type="submit" value="Guardar" class="default">
-          {% if ot %}<a href="{% url 'admin:index' %}" class="button">Panel</a>{% endif %}
+          {% if ot %}
+            {% if use_admin_base %}
+              <a href="{% url 'admin:index' %}" class="button">Panel</a>
+            {% else %}
+              <a href="/" class="button">Inicio</a>
+            {% endif %}
+          {% endif %}
         </div>
       </form>
     </div>
