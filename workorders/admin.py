@@ -37,14 +37,16 @@ if MaintenancePlan:
     class MaintenancePlanAdmin(admin.ModelAdmin):
         """Basic admin for maintenance plans using real model fields."""
 
-        list_display = (
-            "id",
-            "vehicle",
-            "manual",
-            "last_service_km",
-            "last_service_date",
-            "is_active",
-        )
+        list_display = ("id", "vehicle", "manual", "is_active")
         search_fields = ("vehicle__plate",)
         list_filter = ("is_active",)
-        ordering = ("vehicle__plate",)
+        ordering = ("id",)
+
+        # Para no romper nada, lo dejo editable por defecto.
+        # Si quieres que sea solo lectura, descomenta esto:
+        # def has_change_permission(self, request, obj=None):
+        #     return False
+        # def has_add_permission(self, request):
+        #     return False
+        # def has_delete_permission(self, request, obj=None):
+        #     return False
