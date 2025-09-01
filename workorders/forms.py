@@ -191,6 +191,22 @@ class WorkOrderUnifiedForm(forms.ModelForm):
 
         return instance
 
+# ---------- Formularios específicos ----------
+class PreventiveWorkOrderForm(WorkOrderUnifiedForm):
+    """Formulario para órdenes preventivas. Oculta campos exclusivos de las correctivas."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Eliminar campos relacionados al flujo correctivo
+        for fname in ("pre_diagnosis", "failure_origin", "severity", "probable_causes"):
+            self.fields.pop(fname, None)
+
+
+class CorrectiveWorkOrderForm(WorkOrderUnifiedForm):
+    """Formulario para órdenes correctivas (incluye diagnóstico, severidad y causas)."""
+
+    pass
+
 # ---------- Formset de TAREAS (categoría/subcategoría) ----------
 TaskFormSet = inlineformset_factory(
     WorkOrder, WorkOrderTask,
