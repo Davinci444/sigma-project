@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ title }}{% if ot %} #{{ ot.id }}{% endif %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{--bg:#0b1324;--card:#101a34;--text:#e8eefc;--muted:#a9b7d9;--acc:#37d39a;--table:#0d1730}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1150px;margin:24px auto;padding:16px}
+    h1{margin:0 0 8px}
+    .muted{color:var(--muted)}
+    .card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 10px 20px rgba(0,0,0,.2);margin-bottom:16px}
+    .grid{display:grid;gap:12px}
+    @media(min-width:980px){.cols-2{grid-template-columns:1fr 1fr}.cols-3{grid-template-columns:1fr 1fr 1fr}}
+    label{display:block;margin:.5rem 0 .25rem;font-weight:600}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #273253;background:#0d1730;color:var(--text)}
+    table{width:100%;border-collapse:collapse;background:var(--table);border-radius:12px;overflow:hidden}
+    th,td{padding:8px;border-bottom:1px solid #1b2a52}
+    th{text-align:left;font-weight:700}
+    .actions{display:flex;gap:12px;margin-top:14px}
+    .btn{background:var(--acc);color:#04111c;border:none;padding:12px 16px;border-radius:12px;font-weight:700;cursor:pointer}
+    a.link{color:#8dd2ff}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#16305e;color:#9fd1ff;font-size:.85rem}
+    .section-title{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+    .qc{display:flex;gap:8px;align-items:flex-end;margin-top:6px}
+    .qc form{display:flex;gap:8px;align-items:flex-end;margin:0}
+    .qc input, .qc select{width:auto}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>{{ title }}{% if ot %} — OT #{{ ot.id }} — {{ ot.vehicle }}{% endif %}</h1>
+    <p class="muted">Orden de Trabajo unificada: conductor, fechas, (correctivo) diagnóstico, tareas y novedades. Sin evidencias.</p>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <!-- Datos base -->
+      <div class="card grid cols-3">
+        <div>
+          <label>Tipo de OT *</label>{{ form.order_type }}
+        </div>
+        <div>
+          <label>Vehículo *</label>{{ form.vehicle }}
+          {% if qc_vehicle %}
+          <div class="qc">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="qc_target" value="vehicle">
+              <input type="text" name="plate" placeholder="Placa nueva" required>
+              <button class="btn" type="submit">Crear placa</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        <div>
+          <label>Estado *</label>{{ form.status }}
+        </div>
+        <div>
+          <label>Prioridad *</label>{{ form.priority }}
+        </div>
+        <div>
+          <label>Inicio programado</label>{{ form.scheduled_start }}
+        </div>
+        <div>
+          <label>Salida estimada</label>{{ form.scheduled_end }}
+        </div>
+        <div>
+          <label>Odómetro al recibir</label>{{ form.odometer_at_service }}
+        </div>
+
+        {% if form.fields.actual_start %}<div><label>Entrada real</label>{{ form.actual_start }}</div>{% endif %}
+        {% if form.fields.actual_end %}<div><label>Salida real</label>{{ form.actual_end }}</div>{% endif %}
+
+        {% for fname in datetime_real_fields %}
+          {% if fname != 'actual_start' and fname != 'actual_end' %}
+          <div><label>{{ fname|capfirst|replace:"_" " " }}</label>{{ form[fname] }}</div>
+          {% endif %}
+        {% endfor %}
+
+        <div class="cols-2" style="grid-column:1/-1">
+          <label>Descripción del problema / trabajo</label>{{ form.description }}
+        </div>
+
+        <!-- Campos de costo general si tu modelo los trae -->
+        {% for key, field in form.fields.items %}
+          {% if key in " is_external external_vendor external_cost service_cost total_cost " and key in form.fields %}
+          <div>
+            <label>{{ field.label }}</label>{{ form[key] }}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      <!-- Conductor -->
+      {% if form.fields.driver %}
+      <div class="card grid cols-2">
+        <div>
+          <label>Conductor responsable</label>{{ form.driver }}
+          {% if qc_driver %}
+          <div class="qc">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="qc_target" value="driver">
+              {% if 'full_name' in qc_driver.fields %}
+                <input type="text" name="full_name" placeholder="Nombre del conductor" required>
+              {% elif 'name' in qc_driver.fields %}
+                <input type="text" name="name" placeholder="Nombre del conductor" required>
+              {% endif %}
+              {% if 'is_active' in qc_driver.fields %}
+                <label><input type="checkbox" name="is_active" checked> Activo</label>
+              {% endif %}
+              <button class="btn" type="submit">Crear conductor</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        <div>
+          <label>% responsabilidad</label>{{ form.driver_responsibility }}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Sección Correctivo -->
+      <div class="card" id="corrective-section">
+        <h2 class="section-title"><span class="badge">Solo Correctivo</span> Diagnóstico</h2>
+        <div class="grid cols-3">
+          <div><label>Severidad</label>{{ form.severity }}</div>
+          <div><label>Origen de la falla</label>{{ form.failure_origin }}</div>
+          <div style="grid-column:1/-1"><label>Pre-diagnóstico</label>{{ form.pre_diagnosis }}</div>
+          <div style="grid-column:1/-1"><label>Causas probables (se registra como novedad)</label>{{ form.probable_causes }}</div>
+        </div>
+      </div>
+
+      <!-- Tareas -->
+      <div class="card">
+        <h2 class="section-title">Tareas (categoría / subcategoría)</h2>
+
+        <!-- Quick create de categorías/subcategorías -->
+        <div class="qc" style="margin-bottom:10px;">
+          {% if qc_category %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="qc_target" value="category">
+            <input type="text" name="name" placeholder="Nueva categoría" required>
+            <button class="btn" type="submit">Crear categoría</button>
+          </form>
+          {% endif %}
+          {% if qc_subcategory %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="qc_target" value="subcategory">
+            <input type="text" name="name" placeholder="Nueva subcategoría" required>
+            {% if 'category' in qc_subcategory.fields %}
+              <select name="category" required>
+                {% for f in task_fs.forms %}
+                  {% if f.fields.category.choices %}
+                    {% for val,txt in f.fields.category.choices %}
+                      {% if val %}<option value="{{ val }}">{{ txt }}</option>{% endif %}
+                    {% endfor %}
+                    {% break %}
+                  {% endif %}
+                {% endfor %}
+              </select>
+            {% endif %}
+            <button class="btn" type="submit">Crear subcategoría</button>
+          </form>
+          {% endif %}
+        </div>
+
+        {{ task_fs.management_form }}
+        <table>
+          <thead>
+            <tr><th>Categoría</th><th>Subcategoría</th><th>Descripción</th><th>Horas</th><th>Tercero</th><th>Tarifa</th><th>Eliminar</th></tr>
+          </thead>
+          <tbody>
+            {% for f in task_fs %}
+            <tr>
+              <td>{{ f.category }}</td><td>{{ f.subcategory }}</td><td>{{ f.description }}</td>
+              <td>{{ f.hours_spent }}</td><td>{{ f.is_external }}</td><td>{{ f.labor_rate }}</td><td>{{ f.DELETE }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Novedades -->
+      <div class="card">
+        <h2 class="section-title">Novedades de OT</h2>
+        <div class="grid cols-2">
+          <div>
+            <p class="muted">Las novedades nuevas se agregan desde “Comentario inicial” o “Causas probables” al guardar.</p>
+            <div class="actions"><button class="btn" type="submit">Guardar</button></div>
+          </div>
+          <div>
+            {% if notes %}
+              <ul>
+                {% for n in notes %}
+                  <li><span class="muted">{{ n.created_at|date:"Y-m-d H:i" }}</span> — {{ n.text }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="muted">Aún no hay novedades.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" type="submit">Guardar</button>
+        {% if ot %}<a class="link" href="/admin/">Panel</a>{% endif %}
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // Mostrar/Ocultar "Correctivo" robusto (por value y por texto visible)
+    function isCorrectiveOption(sel){
+      if(!sel) return false;
+      const val = (sel.value || "").toUpperCase();
+      if(val.includes("CORRECTIVE")) return true;
+      const opt = sel.options[sel.selectedIndex];
+      const text = (opt && opt.text ? opt.text : "").toLowerCase();
+      return text.includes("correctiv");
+    }
+    function toggleCorrective(){
+      const sel = document.getElementById("id_order_type");
+      const block = document.getElementById("corrective-section");
+      if(!sel || !block) return;
+      block.style.display = isCorrectiveOption(sel) ? "block" : "none";
+    }
+    document.addEventListener("change", function(e){
+      if(e.target && e.target.id === "id_order_type") toggleCorrective();
+    });
+    document.addEventListener("DOMContentLoaded", toggleCorrective);
+  </script>
+</body>
+</html>
