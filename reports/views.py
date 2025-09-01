@@ -42,7 +42,7 @@ def vehicle_costs_report(request):
     vehicles = Vehicle.objects.all()
     for vehicle in vehicles:
         costs = WorkOrder.objects.filter(
-            vehicle=vehicle, status=WorkOrder.OrderStatus.VERIFIED
+            vehicle=vehicle, status=WorkOrder.OrderStatus.COMPLETED
         ).aggregate(
             total_internal=Sum("labor_cost_internal"),
             total_external=Sum("labor_cost_external"),
