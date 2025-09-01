@@ -1,20 +1,7 @@
-# project/settings.py (producción en Render, admin con estilos)
-
-import os
 from pathlib import Path
-import dj_database_url
+import os
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-IS_PRODUCTION = os.environ.get('RENDER') == 'true'
-
-if IS_PRODUCTION:
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    DEBUG = False
-    ALLOWED_HOSTS = [h for h in os.environ.get('ALLOWED_HOSTS', '').split(' ') if h]
-else:
-    SECRET_KEY = 'django-insecure-DEV-ONLY'
-    DEBUG = True
-    ALLOWED_HOSTS = ['*']
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -64,10 +51,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'project.wsgi.application'
 
-if IS_PRODUCTION:
-    DATABASES = {'default': dj_database_url.config(conn_max_age=600, ssl_require=True)}
-else:
-    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -80,11 +69,9 @@ TIME_ZONE = 'America/Bogota'
 USE_I18N = True
 USE_TZ = True
 
-# --- STATIC / MEDIA ---
-STATIC_URL = '/static/'                     # <- CORREGIDO (con slash inicial)
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Sirve estáticos desde los "finders" aun en producción (admin con CSS sin collectstatic)
 WHITENOISE_USE_FINDERS = True
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
@@ -96,7 +83,6 @@ REST_FRAMEWORK = {
     ),
 }
 
-# Logging simple a consola (Render)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -104,5 +90,4 @@ LOGGING = {
     'root': {'handlers': ['console'], 'level': 'INFO'},
 }
 
-# Tarifa por hora para trabajos internos en órdenes de trabajo
 WORKORDER_INTERNAL_RATE = 50000
