@@ -2,13 +2,13 @@
 from django import forms
 from django.forms import inlineformset_factory
 from django.core.exceptions import FieldDoesNotExist
+from django.apps import apps
 
 from .models import (
-    WorkOrder, WorkOrderTask, WorkOrderAttachment, WorkOrderDriver, WorkOrderNote
+    WorkOrder, WorkOrderTask, WorkOrderNote
 )
-from users.models import Driver
 
-# ---------- util ----------
+# -------- Utilidades seguras --------
 def _field_exists(model, name: str) -> bool:
     try:
         model._meta.get_field(name)
@@ -16,34 +16,58 @@ def _field_exists(model, name: str) -> bool:
     except FieldDoesNotExist:
         return False
 
+def _model_or_none(app_label: str, model_name: str):
+    try:
+        return apps.get_model(app_label, model_name)
+    except Exception:
+        return None
+
+# Intenta resolver modelos externos (si no existen, ocultamos sus secciones)
+Driver = _model_or_none("users", "Driver")
+Vehicle = _model_or_none("fleet", "Vehicle")
+TaskCategory = _model_or_none("workorders", "TaskCategory")
+TaskSubcategory = _model_or_none("workorders", "TaskSubcategory")
+WorkOrderDriver = _model_or_none("workorders", "WorkOrderDriver")
+
+# Choices seguros por si el modelo no define enums
+SeverityEnum = getattr(WorkOrder, "Severity", None)
+FailureOriginEnum = getattr(WorkOrder, "FailureOrigin", None)
+SEVERITY_CHOICES = getattr(SeverityEnum, "choices", [])
+FAILURE_ORIGIN_CHOICES = getattr(FailureOriginEnum, "choices", [])
+if not SEVERITY_CHOICES:
+    SEVERITY_CHOICES = [("","---------"), ("LOW","Baja"), ("MEDIUM","Media"), ("HIGH","Alta")]
+if not FAILURE_ORIGIN_CHOICES:
+    FAILURE_ORIGIN_CHOICES = [("","---------"), ("MECHANICAL","Mecánica"), ("ELECTRICAL","Eléctrica"), ("OTHER","Otra")]
+
 # ---------- Form principal unificado ----------
 class WorkOrderUnifiedForm(forms.ModelForm):
-    # Conductor y % de responsabilidad
-    driver = forms.ModelChoiceField(
-        label="Conductor responsable",
-        queryset=Driver.objects.filter(is_active=True),
-        required=False
-    )
-    driver_responsibility = forms.DecimalField(
-        label="Responsabilidad del conductor (%)",
-        required=False, min_value=0, max_value=100
-    )
+    # Conductor y % de responsabilidad (solo si hay modelo Driver)
+    if Driver:
+        driver = forms.ModelChoiceField(
+            label="Conductor responsable",
+            queryset=getattr(Driver, "objects", Driver) if hasattr(Driver, "objects") else [],
+            required=False
+        )
+        driver_responsibility = forms.DecimalField(
+            label="Responsabilidad del conductor (%)",
+            required=False, min_value=0, max_value=100
+        )
 
-    # Campos SOLO para Correctivo
+    # Correctivo (UI decide mostrar)
     pre_diagnosis = forms.CharField(
         label="Pre-diagnóstico (solo correctivo)",
         required=False, widget=forms.Textarea(attrs={'rows':3})
     )
     failure_origin = forms.ChoiceField(
         label="Origen de la falla (solo correctivo)",
-        choices=WorkOrder.FailureOrigin.choices, required=False
+        choices=FAILURE_ORIGIN_CHOICES, required=False
     )
     severity = forms.ChoiceField(
         label="Severidad (solo correctivo)",
-        choices=WorkOrder.Severity.choices, required=False
+        choices=SEVERITY_CHOICES, required=False
     )
 
-    # Nota rápida y “causas probables” como novedad
+    # Novedades rápidas
     first_comment = forms.CharField(
         label="Comentario inicial (opcional)",
         required=False, widget=forms.Textarea(attrs={'rows':2})
@@ -53,7 +77,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         required=False, widget=forms.Textarea(attrs={'rows':2})
     )
 
-    # Campos de fecha/hora "reales" si existen en tu modelo
+    # Campos datetime “reales” si existen en tu modelo
     dynamic_datetime_fields = ("actual_start", "actual_end", "received_at", "delivered_at", "started_at", "finished_at")
 
     class Meta:
@@ -63,6 +87,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
             'status', 'priority',
             'scheduled_start', 'scheduled_end',
             'odometer_at_service',
+            # Campos de costo general si tu modelo los trae (se añaden abajo dinámicamente)
         ]
         widgets = {
             'scheduled_start': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
@@ -72,7 +97,8 @@ class WorkOrderUnifiedForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Agregamos dinámicamente campos datetime si existen
+
+        # Campos datetime reales si existen
         for fname in self.dynamic_datetime_fields:
             if _field_exists(WorkOrder, fname):
                 self.fields[fname] = forms.DateTimeField(
@@ -81,68 +107,130 @@ class WorkOrderUnifiedForm(forms.ModelForm):
                     label=fname.replace("_", " ").capitalize()
                 )
 
+        # Campos de costo general (si existen en tu WorkOrder)
+        for fname in ("is_external", "external_vendor", "external_cost", "service_cost", "total_cost"):
+            if _field_exists(WorkOrder, fname) and fname not in self.fields:
+                self.fields[fname] = forms.CharField(
+                    required=False,
+                    label=fname.replace("_", " ").capitalize()
+                )
+                # Si es bool o decimal, mejoramos el widget:
+                try:
+                    fobj = WorkOrder._meta.get_field(fname)
+                    from django.db import models
+                    if isinstance(fobj, models.BooleanField):
+                        self.fields[fname] = forms.BooleanField(required=False, label=fobj.verbose_name or "¿Externo?")
+                    elif isinstance(fobj, (models.DecimalField, models.FloatField, models.IntegerField)):
+                        self.fields[fname] = forms.DecimalField(required=False, label=fobj.verbose_name or fname.replace("_"," ").capitalize())
+                except Exception:
+                    pass
+
     def save(self, user=None, commit=True):
         instance = super().save(commit=commit)
 
-        # Conductor / responsabilidad
-        driver = self.cleaned_data.get('driver')
-        resp = self.cleaned_data.get('driver_responsibility')
-        if driver:
-            WorkOrderDriver.objects.update_or_create(
-                work_order=instance, driver=driver,
-                defaults={'responsibility_percent': resp}
-            )
+        # Conductor / responsabilidad (sólo si existen modelos)
+        if Driver and WorkOrderDriver and 'driver' in self.cleaned_data:
+            driver = self.cleaned_data.get('driver')
+            resp = self.cleaned_data.get('driver_responsibility')
+            if driver:
+                WorkOrderDriver.objects.update_or_create(
+                    work_order=instance, driver=driver,
+                    defaults={'responsibility_percent': resp}
+                )
 
-        # Comentario inicial
+        # Comentario inicial y causas -> WorkOrderNote
         comment = self.cleaned_data.get('first_comment')
         if comment:
-            WorkOrderNote.objects.create(
-                work_order=instance, text=comment, author=user
-            )
+            note = WorkOrderNote(text=comment, work_order=instance)
+            if _field_exists(WorkOrderNote, "author") and user is not None:
+                setattr(note, "author", user)
+            note.save()
 
-        # Causas probables -> novedad
         causas = self.cleaned_data.get('probable_causes')
-        if causas and self.cleaned_data.get('order_type') == WorkOrder.OrderType.CORRECTIVE:
-            WorkOrderNote.objects.create(
-                work_order=instance, text=f"Causas probables: {causas}", author=user
-            )
+        ot_val = str(self.cleaned_data.get('order_type')).upper()
+        ot_is_corrective = ("CORRECTIVE" in ot_val or "CORRECTIV" in ot_val)
+        if causas and ot_is_corrective:
+            note = WorkOrderNote(text=f"Causas probables: {causas}", work_order=instance)
+            if _field_exists(WorkOrderNote, "author") and user is not None:
+                setattr(note, "author", user)
+            note.save()
 
-        # Correctivo: guarda 3 campos; Preventivo: limpia pre_diagnóstico
-        if self.cleaned_data.get('order_type') == WorkOrder.OrderType.CORRECTIVE:
-            instance.pre_diagnosis = self.cleaned_data.get('pre_diagnosis')
-            instance.failure_origin = self.cleaned_data.get('failure_origin') or instance.failure_origin
-            instance.severity = self.cleaned_data.get('severity') or instance.severity
-            instance.save(update_fields=['pre_diagnosis','failure_origin','severity'])
+        # Guardar campos correctivo si existen en el modelo
+        if ot_is_corrective:
+            if _field_exists(WorkOrder, "pre_diagnosis"):
+                instance.pre_diagnosis = self.cleaned_data.get('pre_diagnosis')
+            if _field_exists(WorkOrder, "failure_origin"):
+                instance.failure_origin = self.cleaned_data.get('failure_origin') or getattr(instance, "failure_origin", None)
+            if _field_exists(WorkOrder, "severity"):
+                instance.severity = self.cleaned_data.get('severity') or getattr(instance, "severity", None)
+            instance.save()
         else:
-            if hasattr(instance, 'pre_diagnosis') and instance.pre_diagnosis:
+            if _field_exists(WorkOrder, "pre_diagnosis") and getattr(instance, "pre_diagnosis", None):
                 instance.pre_diagnosis = ""
                 instance.save(update_fields=['pre_diagnosis'])
 
-        # Guardar campos datetime “reales”, si existen
+        # Guardar campos datetime reales, si existen
+        touched_dt = False
         for fname in self.dynamic_datetime_fields:
             if fname in self.fields:
                 setattr(instance, fname, self.cleaned_data.get(fname))
-        if any(fname in self.fields for fname in self.dynamic_datetime_fields):
+                touched_dt = True
+        if touched_dt:
+            instance.save()
+
+        # Guardar campos de costo general si existen
+        for fname in ("is_external", "external_vendor", "external_cost", "service_cost", "total_cost"):
+            if fname in self.fields:
+                val = self.cleaned_data.get(fname)
+                try:
+                    setattr(instance, fname, val)
+                except Exception:
+                    pass
+        if any(f in self.fields for f in ("is_external","external_vendor","external_cost","service_cost","total_cost")):
             instance.save()
 
         return instance
 
-# ---------- Formsets dentro de la misma pantalla ----------
+# ---------- Formset de TAREAS (categoría/subcategoría) ----------
 TaskFormSet = inlineformset_factory(
     WorkOrder, WorkOrderTask,
     fields=['category','subcategory','description','hours_spent','is_external','labor_rate'],
     extra=1, can_delete=True
 )
 
-EvidenceURLFormSet = inlineformset_factory(
-    WorkOrder, WorkOrderAttachment,
-    fields=['url','description'], extra=1, can_delete=True,
-    widgets={'url': forms.URLInput(attrs={'placeholder': 'https://(Drive/Dropbox/etc.)'})}
-)
-
-class WorkOrderNoteForm(forms.ModelForm):
+# ---------- Quick-Create Forms (para crear sin salir) ----------
+class QuickCreateVehicleForm(forms.ModelForm):
     class Meta:
-        model = WorkOrderNote
-        fields = ['text']
-        widgets = {'text': forms.Textarea(attrs={'rows':2, 'placeholder': 'Escribe una novedad...'})}
-        labels = {'text': 'Nueva novedad'}
+        model = Vehicle
+        fields = ['plate'] if Vehicle and _field_exists(Vehicle, 'plate') else []
+
+class QuickCreateDriverForm(forms.ModelForm):
+    class Meta:
+        model = Driver
+        fields = []
+        if Driver:
+            opts = []
+            for fname in ('full_name','name'):
+                if _field_exists(Driver, fname):
+                    opts.append(fname)
+                    break
+            if _field_exists(Driver, 'is_active'):
+                opts.append('is_active')
+            fields = opts
+
+class QuickCreateCategoryForm(forms.ModelForm):
+    class Meta:
+        model = TaskCategory
+        fields = ['name'] if TaskCategory and _field_exists(TaskCategory, 'name') else []
+
+class QuickCreateSubcategoryForm(forms.ModelForm):
+    class Meta:
+        model = TaskSubcategory
+        fields = []
+        if TaskSubcategory:
+            opts = []
+            if _field_exists(TaskSubcategory, 'name'):
+                opts.append('name')
+            if _field_exists(TaskSubcategory, 'category') and TaskCategory:
+                opts.append('category')
+            fields = opts

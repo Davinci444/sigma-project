@@ -7,11 +7,9 @@ from .views import (
     MaintenancePlanViewSet,
     WorkOrderTaskViewSet,
     WorkOrderPartViewSet,
-    workorder_unified,           # ← NUEVO: editor unificado
-    new_preventive,              # ← compat (redirige)
-    new_corrective,              # ← compat (redirige)
-    edit_tasks,                  # ← compat (redirige)
-    schedule_view,               # tu vista de programación
+    workorder_unified,
+    new_preventive, new_corrective, edit_tasks,
+    schedule_view,
 )
 
 # --------- HTML UNIFICADO (PRIMERO para no chocarse con DRF) ---------
@@ -24,7 +22,7 @@ urlpatterns = [
     path("new/corrective/", new_corrective, name="workorders_new_corrective"),
     path("<int:pk>/tasks/", edit_tasks, name="workorders_edit_tasks"),
 
-    # Página HTML: Programación por fecha (ya la tenías)
+    # Programación
     path("schedule/", schedule_view, name="workorders_schedule"),
 ]
 
