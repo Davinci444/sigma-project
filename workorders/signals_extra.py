@@ -53,11 +53,18 @@ def update_plan_and_alert_on_preventive_close(sender, instance: WorkOrder, creat
             vehicle=vehicle,
             defaults={"manual": MaintenanceManual.objects.filter(fuel_type=vehicle.fuel_type).first()}
         )
-        plan.is_active = True
+        updated = False
         # preferimos el odómetro registrado en la OT; si no, usamos el actual del vehículo
-        plan.last_service_km = instance.odometer_at_service or (vehicle.current_odometer_km or 0)
-        plan.last_service_date = timezone.now().date()
-        plan.save()
+        current_km = instance.odometer_at_service or (vehicle.current_odometer_km or 0)
+        if current_km > (plan.last_service_km or 0):
+            plan.last_service_km = current_km
+            plan.last_service_date = timezone.now().date()
+            updated = True
+        if not plan.is_active:
+            plan.is_active = True
+            updated = True
+        if updated:
+            plan.save()
 
         # Crear/actualizar alerta
         next_due_km, desc = _calc_next_due(vehicle, plan)
