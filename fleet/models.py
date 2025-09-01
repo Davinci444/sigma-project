@@ -1,8 +1,14 @@
-# fleet/models.py
+"""Models for managing fleet vehicles and their zone history."""
+
 from django.db import models
 from core.models import Zone
 
 class Vehicle(models.Model):
+    """Represents a fleet vehicle.
+
+    Key fields include the unique ``plate`` and ``vin`` identifiers, the
+    vehicle's ``status``, and its current operational ``current_zone``.
+    """
     class VehicleStatus(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Activo'
         IN_REPAIR = 'IN_REPAIR', 'En Reparación'
@@ -48,9 +54,15 @@ class Vehicle(models.Model):
 
     # --- NUEVA LÓGICA DE AUTOLIMPIEZA ---
     def save(self, *args, **kwargs):
+        """Normalize the plate before saving.
+
+        Args:
+            *args: Positional arguments for ``Model.save``.
+            **kwargs: Keyword arguments for ``Model.save``.
+        """
         # Antes de guardar, limpiamos la placa
         self.plate = self.plate.upper().strip().replace('-', '')
-        super().save(*args, **kwargs) # Llamamos al método de guardado original
+        super().save(*args, **kwargs)  # Llamamos al método de guardado original
 
     def __str__(self):
         return f"{self.brand} {self.linea} ({self.plate})"
@@ -60,7 +72,15 @@ class Vehicle(models.Model):
         ordering = ['plate']
 
 class VehicleZoneHistory(models.Model):
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="zone_history")
+    """Tracks a vehicle's zone assignments over time.
+
+    Records the ``zone`` where the vehicle was located along with the
+    ``start_date`` and optional ``end_date`` for each assignment.
+    """
+
+    vehicle = models.ForeignKey(
+        Vehicle, on_delete=models.CASCADE, related_name="zone_history"
+    )
     zone = models.ForeignKey(Zone, on_delete=models.PROTECT)
     start_date = models.DateField("Fecha de Inicio en Zona")
     end_date = models.DateField("Fecha de Fin en Zona", null=True, blank=True)
