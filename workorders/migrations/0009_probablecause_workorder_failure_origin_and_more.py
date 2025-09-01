@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0003_rename_active_driver_is_active_and_more'),
+        ('users', '0002_driver'),
         ('workorders', '0008_alter_workorderdriverassignment_unique_together_and_more'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

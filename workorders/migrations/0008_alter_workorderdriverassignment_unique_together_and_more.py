@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0003_rename_active_driver_is_active_and_more'),
+        ('users', '0002_driver'),
         ('workorders', '0007_workordercorrective_workorderdriverassignment'),
     ]
 
