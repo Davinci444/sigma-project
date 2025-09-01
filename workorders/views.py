@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.decorators.http import require_http_methods
+from django.db import transaction
 
 from rest_framework import viewsets, filters
 
@@ -85,36 +86,39 @@ def workorder_unified(request, pk=None):
 
     # ---- Flujo normal crear/editar OT ----
     if request.method == "POST":
+        form = WorkOrderUnifiedForm(request.POST, instance=ot)
+        if ot:
+            task_fs = TaskFormSet(request.POST, instance=ot, prefix="tasks")
+        else:
+            task_fs = None
         try:
-            form = WorkOrderUnifiedForm(request.POST, instance=ot)
-            if ot:
-                task_fs = TaskFormSet(request.POST, instance=ot, prefix="tasks")
-            else:
-                task_fs = None
-
             if form.is_valid():
-                ot_saved = form.save(user=request.user)
-                if task_fs is None:
-                    task_fs = TaskFormSet(request.POST, instance=ot_saved, prefix="tasks")
+                with transaction.atomic():
+                    ot_saved = form.save(user=request.user)
+                    if task_fs is None:
+                        task_fs = TaskFormSet(request.POST, instance=ot_saved, prefix="tasks")
 
-                if task_fs.is_valid():
-                    task_fs.save()
+                    if task_fs.is_valid():
+                        task_fs.save()
+                    else:
+                        messages.error(request, "Corrige los errores en Tareas.")
+                        ot = ot_saved  # re-render
+                        raise ValueError("task formset invalid")
 
-                    if hasattr(ot_saved, "recalculate_costs"):
-                        try:
-                            ot_saved.recalculate_costs()
-                        except Exception as e:
-                            logger.warning("recalculate_costs falló: %s", e)
+                if hasattr(ot_saved, "recalculate_costs"):
+                    try:
+                        ot_saved.recalculate_costs()
+                    except Exception as e:
+                        logger.warning("recalculate_costs falló: %s", e)
 
-                    # Redirección por nombre según el prefijo de la ruta
-                    dest = "workorders_admin_edit" if request.path.startswith("/admin/") else "workorders_unified_edit"
-                    messages.success(request, f"OT #{ot_saved.id} guardada correctamente.")
-                    return redirect(dest, pk=ot_saved.id)
-                else:
-                    messages.error(request, "Corrige los errores en Tareas.")
-                    ot = ot_saved  # re-render
+                # Redirección por nombre según el prefijo de la ruta
+                dest = "workorders_admin_edit" if request.path.startswith("/admin/") else "workorders_unified_edit"
+                messages.success(request, f"OT #{ot_saved.id} guardada correctamente.")
+                return redirect(dest, pk=ot_saved.id)
             else:
                 messages.error(request, "Revisa los datos de la Orden de Trabajo.")
+        except ValueError:
+            pass  # errores ya comunicados al usuario
         except Exception as e:
             logger.exception("Error al procesar OT unificada: %s", e)
             messages.error(request, "Se produjo un error al guardar la OT. Revisa los datos y vuelve a intentar.")
