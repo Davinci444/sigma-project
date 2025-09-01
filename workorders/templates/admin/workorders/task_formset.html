@@ -1,0 +1,80 @@
+<!-- templates/workorders/task_formset.html -->
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Editar trabajos de OT #{{ ot.id }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="{% static 'admin/css/base.css' %}" rel="stylesheet">
+  <style>
+    body { padding: 16px; }
+    table { width:100%; border-collapse: collapse; margin-bottom:12px; }
+    th, td { border:1px solid #ddd; padding:8px; }
+    .btn { background:#0b6; color:#fff; padding:10px 14px; border:none; cursor:pointer; }
+    .muted { color:#555; }
+    .split { display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
+  </style>
+</head>
+<body>
+  <h1>OT #{{ ot.id }} — {{ ot.get_order_type_display }} — {{ ot.vehicle }}</h1>
+  <p class="muted">Agrega/edita los trabajos y registra evidencias (enlace seguro).</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="split">
+      <div>
+        <h2>Trabajos</h2>
+        {{ formset.management_form }}
+        <table>
+          <thead>
+            <tr>
+              <th>Categoria</th>
+              <th>Subcategoria</th>
+              <th>Descripción</th>
+              <th>Horas</th>
+              <th>Tercero</th>
+              <th>Tarifa</th>
+              <th>Eliminar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for form in formset %}
+            <tr>
+              <td>{{ form.category }}</td>
+              <td>{{ form.subcategory }}</td>
+              <td>{{ form.description }}</td>
+              <td>{{ form.hours_spent }}</td>
+              <td>{{ form.is_external }}</td>
+              <td>{{ form.labor_rate }}</td>
+              <td>{{ form.DELETE }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h2>Evidencias (URL)</h2>
+        {{ evidset.management_form }}
+        <table>
+          <thead>
+            <tr><th>URL</th><th>Descripción</th><th>Eliminar</th></tr>
+          </thead>
+          <tbody>
+            {% for form in evidset %}
+            <tr>
+              <td>{{ form.url }}</td>
+              <td>{{ form.description }}</td>
+              <td>{{ form.DELETE }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <button class="btn" type="submit">Guardar</button>
+    <a style="margin-left:12px" href="{% url 'admin:workorders_workorder_change' ot.id %}">Ver en Admin</a>
+  </form>
+</body>
+</html>

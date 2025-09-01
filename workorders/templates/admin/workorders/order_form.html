@@ -1,0 +1,36 @@
+<!-- templates/workorders/order_form.html -->
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="{% static 'admin/css/base.css' %}" rel="stylesheet">
+  <style>
+    body { padding: 16px; }
+    .row { margin-bottom: 12px; }
+    label { display:block; font-weight:600; margin-bottom:4px; }
+    input, select, textarea { width:100%; padding:8px; }
+    .btn { background:#0b6; color:#fff; padding:10px 14px; border:none; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <h1>{{ title }}</h1>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      <div class="row">
+        <label>{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+        {{ field }}
+        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+        {% for e in field.errors %}<div style="color:#b00">{{ e }}</div>{% endfor %}
+      </div>
+    {% endfor %}
+    <button class="btn" type="submit">Guardar y continuar</button>
+  </form>
+  <p style="margin-top:16px;">
+    <a href="{% url 'admin:index' %}">Volver al panel</a>
+  </p>
+</body>
+</html>

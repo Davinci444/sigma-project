@@ -1,4 +1,4 @@
-# project/settings.py (Versión con idioma español activado)
+# project/settings.py (Versión robusta con MEDIA y logs)
 
 import os
 from pathlib import Path
@@ -11,6 +11,8 @@ if IS_PRODUCTION:
     SECRET_KEY = os.environ.get('SECRET_KEY')
     DEBUG = False
     ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(' ')
+    # Quitar strings vacíos
+    ALLOWED_HOSTS = [h for h in ALLOWED_HOSTS if h]
 else:
     SECRET_KEY = 'django-insecure-ESTA-LLAVE-ES-SOLO-PARA-DESARROLLO-LOCAL'
     DEBUG = True
@@ -35,19 +37,22 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    # --- NUEVA LÍNEA PARA ACTIVAR TRADUCCIONES ---
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # ⚠️ DESCOMENTA SOLO SI QUIERES LOGS DETALLADOS DE 500 (debug puntual)
+    # 'core.middleware.DumpOnErrorMiddleware',
 ]
 
 ROOT_URLCONF = 'project.urls'
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -66,45 +71,44 @@ TEMPLATES = [
 WSGI_APPLICATION = 'project.wsgi.application'
 
 if IS_PRODUCTION:
-    DATABASES = { 'default': dj_database_url.config(conn_max_age=600, ssl_require=True) }
+    DATABASES = {'default': dj_database_url.config(conn_max_age=600, ssl_require=True)}
 else:
-    DATABASES = { 'default': { 'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3' } }
+    DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-LANGUAGE_CODE = 'es-co'
+LANGUAGE_CODE = 'es'
 TIME_ZONE = 'America/Bogota'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
+# Static
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
+# Media (para cuando habilitemos upload real)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
-    'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework_simplejwt.authentication.JWTAuthentication'],
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
 }
 
+CORS_ALLOW_ALL_ORIGINS = True
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logging sobrio a consola (Render)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'fleet.signals': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'root': {'handlers': ['console'], 'level': 'INFO'},
 }
