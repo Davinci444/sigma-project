@@ -20,7 +20,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for ot in grouped.day %}
+            {% for ot in grouped[day] %}
               <tr>
                 <td>#{{ ot.id }}</td>
                 <td>{{ ot.get_status_display }}</td>
