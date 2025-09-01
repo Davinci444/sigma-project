@@ -1,11 +1,12 @@
 {% extends "admin/base_site.html" %}
 {% load static %}
+{# Usar la etiqueta static para que las rutas funcionen tanto en el admin como en vistas externas #}
 
 {% block title %}{{ title }}{% if ot %} #{{ ot.id }}{% endif %}{% endblock %}
 
 {% block extrastyle %}
   {{ block.super }}
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/css/select2.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'workorders/css/select2.min.css' %}">
   <link rel="stylesheet" href="{% static 'workorders/order_full_form.css' %}">
 {% endblock %}
 
@@ -241,65 +242,6 @@
 
 {% block extrahead %}
   {{ block.super }}
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
-  <script>
-    (function($) {
-      function toggleCorrective() {
-        var sel = $('#id_order_type');
-        var section = $('#corrective-section');
-        if (!sel.length || !section.length) return;
-        section.toggle(sel.val() === 'CORRECTIVE');
-      }
-
-      function initSelect($el) {
-        var url = $el.data('url');
-        $el.select2({
-          ajax: {
-            url: url,
-            dataType: 'json',
-            delay: 250,
-            data: function(params) { return { search: params.term }; },
-            processResults: function(data) {
-              var results = data.results || data;
-              return {
-                results: results.map(function(obj) {
-                  var text = obj.plate || obj.full_name || obj.name;
-                  return { id: obj.id, text: text };
-                })
-              };
-            }
-          },
-          width: 'style'
-        });
-        var icon = $el.next('.search-icon');
-        if (icon.length) {
-          icon.on('click', function() { $el.select2('open'); });
-        }
-      }
-
-      function initAll(ctx) {
-        $(ctx).find('select.select2-ajax').each(function() {
-          initSelect($(this));
-        });
-      }
-
-      $(function() {
-        toggleCorrective();
-        $('#id_order_type').on('change', toggleCorrective);
-
-        initAll(document);
-
-        $('#add-task-btn').on('click', function() {
-          var totalForms = $('#id_tasks-TOTAL_FORMS');
-          var tableBody = $('#tasks-table tbody');
-          var tmpl = $('#task-empty-form').html();
-          var idx = parseInt(totalForms.val(), 10);
-          tableBody.append(tmpl.replace(/__prefix__/g, idx));
-          totalForms.val(idx + 1);
-          var newRow = tableBody.find('tr').last();
-          initAll(newRow);
-        });
-      });
-    })(django.jQuery);
-  </script>
+  <script src="{% static 'workorders/js/select2.min.js' %}"></script>
+  <script src="{% static 'workorders/js/order_full_form.js' %}"></script>
 {% endblock %}
