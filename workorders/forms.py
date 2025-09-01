@@ -218,6 +218,7 @@ class WorkOrderBaseForm(forms.ModelForm):
             if _field_exists(WorkOrderNote, "author") and user is not None:
                 setattr(note, "author", user)
             note.save()
+
         touched_dt = False
         for fname in self.dynamic_datetime_fields:
             if fname in self.fields:
