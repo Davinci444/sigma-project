@@ -1,78 +1,66 @@
-"""Models for managing inventory and suppliers."""
-
+"""Models for managing inventory, suppliers y repuestos por vehículo."""
 from django.db import models
 
 
-class Supplier(models.Model):
-    """Represents a supplier of parts."""
+# =========================
+# PROVEEDORES / INVENTARIO BASE (lo que ya manejas)
+# =========================
 
+class Supplier(models.Model):
     name = models.CharField("Nombre del Proveedor", max_length=150)
     nit = models.CharField("NIT", max_length=20, unique=True, blank=True, null=True)
     contact_person = models.CharField("Persona de Contacto", max_length=100, blank=True)
-    phone = models.CharField("Teléfono", max_length=20, blank=True)
-    email = models.EmailField("Email", blank=True)
-
-    def __str__(self) -> str:
-        """Return supplier name."""
-
-        return self.name
+    phone = models.CharField("Teléfono", max_length=30, blank=True)
+    email = models.EmailField("Correo", blank=True)
+    address = models.CharField("Dirección", max_length=255, blank=True)
+    notes = models.TextField("Notas", blank=True)
 
     class Meta:
         verbose_name = "Proveedor"
         verbose_name_plural = "Proveedores"
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class Part(models.Model):
-    """Represents an inventory part."""
-
-    class UnitOfMeasure(models.TextChoices):
-        UNIT = "UNIT", "Unidad"
-        LITER = "LITER", "Litro"
-        GALLON = "GALLON", "Galón"
-        METER = "METER", "Metro"
-        SET = "SET", "Juego/Kit"
-
-    sku = models.CharField("SKU (Referencia)", max_length=50, unique=True)
-    name = models.CharField("Nombre del Repuesto", max_length=200)
+    sku = models.CharField("SKU", max_length=50, unique=True)
+    name = models.CharField("Nombre", max_length=150)
     description = models.TextField("Descripción", blank=True)
+    quantity = models.DecimalField("Cantidad", max_digits=10, decimal_places=2, default=0)
+    unit = models.CharField("Unidad", max_length=32, blank=True)
+    minimal_stock = models.DecimalField("Stock Mínimo", max_digits=10, decimal_places=2, default=0)
+
     supplier = models.ForeignKey(
-        Supplier, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Proveedor"
+        Supplier,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="parts",
+        verbose_name="Proveedor",
     )
-    location = models.CharField("Ubicación en Bodega", max_length=100, blank=True)
-
-    # --- NUEVO CAMPO ---
-    unit = models.CharField(
-        "Unidad de Medida",
-        max_length=20,
-        choices=UnitOfMeasure.choices,
-        default=UnitOfMeasure.UNIT,
-    )
-
-    stock_current = models.DecimalField("Stock Actual", max_digits=10, decimal_places=2, default=0.0)
-    stock_min = models.DecimalField("Stock Mínimo", max_digits=10, decimal_places=2, default=1.0)
-    average_cost = models.DecimalField("Costo Promedio", max_digits=10, decimal_places=2, default=0.0)
-
-    def __str__(self) -> str:
-        """Return part name and SKU."""
-
-        return f"{self.name} ({self.sku})"
 
     class Meta:
-        verbose_name = "Repuesto"
-        verbose_name_plural = "Repuestos"
+        verbose_name = "Repuesto (Inventario)"
+        verbose_name_plural = "Repuestos (Inventario)"
+
+    def __str__(self) -> str:
+        return f"{self.sku} - {self.name}"
 
 
 class InventoryMovement(models.Model):
-    """Tracks movements of parts in inventory."""
-
     class MovementType(models.TextChoices):
-        INBOUND = "INBOUND", "Entrada"
-        OUTBOUND = "OUTBOUND", "Salida"
-        ADJUSTMENT = "ADJUSTMENT", "Ajuste"
+        IN = "IN", "Entrada"
+        OUT = "OUT", "Salida"
 
-    part = models.ForeignKey(Part, on_delete=models.CASCADE, verbose_name="Repuesto")
+    part = models.ForeignKey(
+        Part,
+        on_delete=models.CASCADE,
+        related_name="movements",
+        verbose_name="Repuesto",
+    )
     movement_type = models.CharField(
-        "Tipo de Movimiento", max_length=20, choices=MovementType.choices
+        "Tipo", max_length=3, choices=MovementType.choices, default=MovementType.IN
     )
     quantity = models.DecimalField("Cantidad", max_digits=10, decimal_places=2)
     work_order = models.ForeignKey(
@@ -85,12 +73,79 @@ class InventoryMovement(models.Model):
     reason = models.CharField("Motivo del movimiento", max_length=255, blank=True)
     timestamp = models.DateTimeField("Fecha y Hora", auto_now_add=True)
 
-    def __str__(self) -> str:
-        """Return description of the movement."""
-
-        return f"{self.movement_type} de {self.quantity} x {self.part.sku}"
-
     class Meta:
         verbose_name = "Movimiento de Inventario"
         verbose_name_plural = "Movimientos de Inventario"
 
+    def __str__(self) -> str:
+        return f"{self.movement_type} de {self.quantity} x {self.part.sku}"
+
+
+# =========================
+# NUEVO: CATÁLOGO DE REPUESTOS
+# =========================
+
+class SpareCategory(models.Model):
+    name = models.CharField("Nombre de categoría", max_length=80, unique=True)
+    slug = models.SlugField("Slug", max_length=100, unique=True)
+    description = models.TextField("Descripción", blank=True)
+    is_active = models.BooleanField("Activa", default=True)
+
+    class Meta:
+        verbose_name = "Categoría de repuesto"
+        verbose_name_plural = "Categorías de repuestos"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class SpareItem(models.Model):
+    category = models.ForeignKey(
+        SpareCategory, on_delete=models.PROTECT, related_name="items", verbose_name="Categoría"
+    )
+    name = models.CharField("Nombre (genérico)", max_length=120)
+    description = models.TextField("Descripción", blank=True)
+    unit = models.CharField("Unidad", max_length=32, blank=True)
+    is_active = models.BooleanField("Activo", default=True)
+
+    class Meta:
+        verbose_name = "Ítem de repuesto"
+        verbose_name_plural = "Ítems de repuesto"
+        ordering = ["category__name", "name"]
+        unique_together = (("category", "name"),)
+
+    def __str__(self):
+        return f"{self.category.name} · {self.name}"
+
+
+# =========================
+# NUEVO: REPUESTOS VINCULADOS A CADA VEHÍCULO
+# =========================
+
+class VehicleSpare(models.Model):
+    vehicle = models.ForeignKey(
+        "fleet.Vehicle", on_delete=models.CASCADE, related_name="spares", verbose_name="Vehículo"
+    )
+    spare_item = models.ForeignKey(
+        SpareItem, on_delete=models.PROTECT, related_name="vehicle_links", verbose_name="Ítem"
+    )
+
+    brand = models.CharField("Marca", max_length=120, blank=True)
+    part_number = models.CharField("Referencia / Part number", max_length=120, blank=True)
+    quantity = models.DecimalField("Cantidad", max_digits=10, decimal_places=2, blank=True, null=True)
+    notes = models.TextField("Notas", blank=True)
+
+    last_replacement_date = models.DateField("Último reemplazo", blank=True, null=True)
+    next_replacement_km = models.PositiveIntegerField("Próximo reemplazo (km)", blank=True, null=True)
+
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    updated_at = models.DateTimeField("Actualizado", auto_now=True)
+
+    class Meta:
+        verbose_name = "Repuesto del vehículo"
+        verbose_name_plural = "Repuestos del vehículo"
+        ordering = ["vehicle__plate", "spare_item__category__name", "spare_item__name"]
+
+    def __str__(self):
+        return f"{self.vehicle.plate} · {self.spare_item}"

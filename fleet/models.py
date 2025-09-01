@@ -93,3 +93,61 @@ class VehicleZoneHistory(models.Model):
 
 
 from .fuel_logs import FuelUploadLog  # noqa: F401  # Import para registrar el modelo
+
+# ========= NUEVOS MODELOS: REPUESTOS =========
+from django.db import models
+
+class SpareCategory(models.Model):
+    name = models.CharField("Nombre de categoría", max_length=80, unique=True)
+    slug = models.SlugField("Slug", max_length=100, unique=True)
+    description = models.TextField("Descripción", blank=True)
+    is_active = models.BooleanField("Activa", default=True)
+
+    class Meta:
+        verbose_name = "Categoría de repuesto"
+        verbose_name_plural = "Categorías de repuestos"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class SpareItem(models.Model):
+    category = models.ForeignKey(SpareCategory, on_delete=models.PROTECT, related_name="items", verbose_name="Categoría")
+    name = models.CharField("Nombre (genérico)", max_length=120)
+    description = models.TextField("Descripción", blank=True)
+    unit = models.CharField("Unidad", max_length=32, blank=True)
+    is_active = models.BooleanField("Activo", default=True)
+
+    class Meta:
+        verbose_name = "Ítem de repuesto"
+        verbose_name_plural = "Ítems de repuesto"
+        ordering = ["category__name", "name"]
+        unique_together = (("category", "name"),)
+
+    def __str__(self):
+        return f"{self.category.name} · {self.name}"
+
+
+class VehicleSpare(models.Model):
+    vehicle = models.ForeignKey('fleet.Vehicle', on_delete=models.CASCADE, related_name="spares", verbose_name="Vehículo")
+    spare_item = models.ForeignKey(SpareItem, on_delete=models.PROTECT, related_name="vehicle_links", verbose_name="Ítem")
+
+    brand = models.CharField("Marca", max_length=120, blank=True)
+    part_number = models.CharField("Referencia / Part number", max_length=120, blank=True)
+    quantity = models.DecimalField("Cantidad", max_digits=10, decimal_places=2, blank=True, null=True)
+    notes = models.TextField("Notas", blank=True)
+
+    last_replacement_date = models.DateField("Último reemplazo", blank=True, null=True)
+    next_replacement_km = models.PositiveIntegerField("Próximo reemplazo (km)", blank=True, null=True)
+
+    created_at = models.DateTimeField("Creado", auto_now_add=True)
+    updated_at = models.DateTimeField("Actualizado", auto_now=True)
+
+    class Meta:
+        verbose_name = "Repuesto del vehículo"
+        verbose_name_plural = "Repuestos del vehículo"
+        ordering = ["vehicle__plate", "spare_item__category__name", "spare_item__name"]
+
+    def __str__(self):
+        return f"{self.vehicle.plate} · {self.spare_item}"

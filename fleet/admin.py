@@ -1,9 +1,12 @@
-"""Admin de Vehículos: columnas claras y filtros útiles sin depender de campos inexistentes."""
-
+"""Admin de Vehículos con inline de repuestos por vehículo."""
 from django.contrib import admin
 from django.db.models import Q
+from django.urls import path
+from django.http import JsonResponse, HttpRequest
+
 from .models import Vehicle
 from workorders.models import WorkOrder
+from inventory.models import SpareCategory, SpareItem, VehicleSpare
 
 IN_WORKSHOP_STATUSES = [
     WorkOrder.OrderStatus.IN_PROGRESS,
@@ -35,24 +38,68 @@ class EnTallerFilter(admin.SimpleListFilter):
         return qs
 
 
+class VehicleSpareInline(admin.TabularInline):
+    model = VehicleSpare
+    extra = 1
+    fields = ("category", "spare_item", "brand", "part_number", "quantity",
+              "last_replacement_date", "next_replacement_km", "notes")
+    autocomplete_fields = ("spare_item",)
+
+    def get_fields(self, request, obj=None):
+        fs = list(super().get_fields(request, obj))
+        if "category" not in fs:
+            fs.insert(0, "category")
+        return fs
+
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        from django import forms
+        if db_field.name == "category":
+            return forms.ModelChoiceField(
+                queryset=SpareCategory.objects.filter(is_active=True).order_by("name"),
+                required=False,
+                label="Categoría",
+            )
+        return super().formfield_for_dbfield(db_field, **kwargs)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "spare_item":
+            cat_id = request.POST.get("category") or request.GET.get("category")
+            if cat_id:
+                kwargs["queryset"] = SpareItem.objects.filter(category_id=cat_id)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
     list_display = (
-        "plate",
-        "usuario_gestor_asignado",
-        "current_odometer_km",
-        "vehicle_type",
-        "fuel_type",
-        "en_taller",
+        "plate", "vehicle_type", "fuel_type", "current_odometer_km",
+        "usuario_gestor_asignado", "en_taller",
     )
-    list_filter = (
-        "vehicle_type",
-        "fuel_type",
-        EnTallerFilter,
-    )
+    list_filter = ("vehicle_type", "fuel_type", EnTallerFilter)
     search_fields = ("plate", "vin", "brand", "linea", "modelo")
     ordering = ("plate",)
 
+    inlines = [VehicleSpareInline]
+
+    class Media:
+        js = ("fleet/admin_vehicle_spares.js",)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path("spare-items/", self.admin_site.admin_view(self.spare_items_view), name="vehicle_spare_items"),
+        ]
+        return custom + urls
+
+    def spare_items_view(self, request: HttpRequest):
+        cat_id = request.GET.get("category")
+        qs = SpareItem.objects.all()
+        if cat_id:
+            qs = qs.filter(Q(category_id=cat_id))
+        data = [{"id": it.pk, "text": it.name} for it in qs.order_by("name")[:500]]
+        return JsonResponse(data, safe=False)
+
+    # helpers
     def usuario_gestor_asignado(self, obj: Vehicle):
         for name in ("assigned_user", "user", "owner", "manager", "assigned_to"):
             if hasattr(obj, name):
