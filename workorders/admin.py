@@ -1,6 +1,7 @@
 # workorders/admin.py
 from django.contrib import admin
 from django.shortcuts import redirect
+from django.urls import reverse  # ← NUEVO: para usar nombres de ruta en redirect
 from .models import WorkOrder, WorkOrderNote
 
 # --- Admin de OT: redirige a la IU unificada ---
@@ -14,10 +15,12 @@ class WorkOrderAdmin(admin.ModelAdmin):
     raw_id_fields = ()
 
     def add_view(self, request, form_url='', extra_context=None):
-        return redirect("/api/workorders/workorders/new/")
+        # ANTES: return redirect("/api/workorders/workorders/new/")
+        return redirect(reverse("workorders_unified_new"))
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
-        return redirect(f"/api/workorders/workorders/{object_id}/edit/")
+        # ANTES: return redirect(f"/api/workorders/workorders/{object_id}/edit/")
+        return redirect(reverse("workorders_unified_edit", args=[object_id]))
 
 # --- Novedades visibles en admin (opcional) ---
 @admin.register(WorkOrderNote)
@@ -43,3 +46,4 @@ for dotted in [
     # agrega más si fuera necesario ocultarlos del admin
 ]:
     _try_unregister(dotted)
+
