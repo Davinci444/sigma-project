@@ -12,9 +12,9 @@ def main():
     # ⬇️ tu SECRET_KEY (la que me diste)
     os.environ.setdefault("SECRET_KEY", "9d29ed5ddd2a0ba5b122b5123cf9a628")
 
-    # ⬇️ NO CAMBIES esta línea: debe apuntar a tu módulo de settings actual.
-    # Si tu manage.py original decía 'sigma.settings' o 'core.settings', mantenlo igual aquí:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "sigma_project.settings")
+    # Selecciona el módulo de settings según la variable de entorno
+    env = os.environ.get("DJANGO_ENV", "dev")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", f"project.settings.{env}")
 
     try:
         from django.core.management import execute_from_command_line

@@ -182,6 +182,6 @@ class MaintenanceManualAdmin(admin.ModelAdmin):
 
 @admin.register(ManualTask)
 class ManualTaskAdmin(admin.ModelAdmin):
-    list_display = ("id", "manual", "category", "subcategory", "km_interval", "months_interval")
+    list_display = ("id", "manual", "km_interval", "description")
     list_filter = ("manual",)
-    search_fields = ("category__name", "subcategory__name")
+    search_fields = ("description",)
