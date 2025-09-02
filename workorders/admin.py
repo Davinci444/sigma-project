@@ -71,8 +71,10 @@ class WorkOrderAdmin(admin.ModelAdmin):
     list_filter = ("order_type", "status", "priority")
     inlines = [WorkOrderTaskInline]
 
-    # Show the magnifying glass on heavy relations (safe/dynamic)
-    raw_id_fields = tuple(_existing_fk_fields(WorkOrder, ["vehicle", "assigned_to", "external_vendor", "driver"]))
+    # Only use the magnifying glass for rarely used heavy relations
+    raw_id_fields = tuple(
+        _existing_fk_fields(WorkOrder, ["assigned_to", "external_vendor"])
+    )
 
     fieldsets = (
         ("Datos base", {
