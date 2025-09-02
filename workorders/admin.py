@@ -76,11 +76,6 @@ class WorkOrderAdmin(admin.ModelAdmin):
         _existing_fk_fields(WorkOrder, ["assigned_to", "external_vendor"])
     )
 
-    # Allow searching vehicles by placa directly instead of raw IDs
-    autocomplete_fields = tuple(
-        _existing_fk_fields(WorkOrder, ["vehicle"])
-    )
-
     fieldsets = (
         ("Datos base", {
             "fields": tuple(
