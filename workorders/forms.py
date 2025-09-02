@@ -190,6 +190,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
         ot_val = str(self.cleaned_data.get('order_type')).upper()
         ot_is_corrective = ("CORRECTIVE" in ot_val or "CORRECTIV" in ot_val)
 
+
         if ot_is_corrective:
             instance.probable_causes.set(causas or [])
             # Guardar campos correctivo si existen en el modelo
@@ -201,19 +202,7 @@ class WorkOrderUnifiedForm(forms.ModelForm):
                 instance.severity = self.cleaned_data.get('severity') or getattr(instance, "severity", None)
             instance.save()
         else:
-            instance.probable_causes.clear()
-            modified = False
-            if _field_exists(WorkOrder, "pre_diagnosis") and getattr(instance, "pre_diagnosis", ""):
-                instance.pre_diagnosis = ""
-                modified = True
-            if _field_exists(WorkOrder, "failure_origin") and getattr(instance, "failure_origin", None):
-                instance.failure_origin = None
-                modified = True
-            if _field_exists(WorkOrder, "severity") and getattr(instance, "severity", None):
-                instance.severity = None
-                modified = True
-            if modified:
-                instance.save()
+
 
         # Guardar campos datetime reales, si existen
         touched_dt = False

@@ -56,20 +56,6 @@ class WorkOrderUnifiedViewTests(TestCase):
         self.assertEqual(wo.order_type, WorkOrder.OrderType.CORRECTIVE)
         self.assertEqual(wo.pre_diagnosis, "Initial diagnosis")
 
-    def test_corrective_fields_cleared_when_changed_to_preventive(self):
-        """Switching a corrective OT to preventive clears corrective fields."""
-        cause = ProbableCause.objects.create(name="Causa")
-        url = reverse("workorders_unified_new") + "?type=corrective"
-        data = {
-            "vehicle": str(self.vehicle.id),
-            "order_type": WorkOrder.OrderType.CORRECTIVE,
-            "status": WorkOrder.OrderStatus.SCHEDULED,
-            "priority": WorkOrder.Priority.MEDIUM,
-            "description": "Engine issue",
-            "pre_diagnosis": "Initial diagnosis",
-            "failure_origin": WorkOrder.FailureOrigin.MISUSE,
-            "severity": WorkOrder.Severity.HIGH,
-            "probable_causes": [str(cause.id)],
             "tasks-TOTAL_FORMS": "0",
             "tasks-INITIAL_FORMS": "0",
             "tasks-MIN_NUM_FORMS": "0",
@@ -77,34 +63,7 @@ class WorkOrderUnifiedViewTests(TestCase):
         }
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, 302)
-        wo = WorkOrder.objects.get(description="Engine issue")
-        self.assertTrue(wo.probable_causes.exists())
-        self.assertEqual(wo.pre_diagnosis, "Initial diagnosis")
 
-        url_edit = reverse("workorders_unified_edit", args=[wo.id])
-        data_update = {
-            "vehicle": str(self.vehicle.id),
-            "order_type": WorkOrder.OrderType.PREVENTIVE,
-            "status": WorkOrder.OrderStatus.SCHEDULED,
-            "priority": WorkOrder.Priority.MEDIUM,
-            "description": "Engine issue",
-            "pre_diagnosis": "",
-            "failure_origin": "",
-            "severity": "",
-            "probable_causes": [],
-            "tasks-TOTAL_FORMS": "0",
-            "tasks-INITIAL_FORMS": "0",
-            "tasks-MIN_NUM_FORMS": "0",
-            "tasks-MAX_NUM_FORMS": "1000",
-        }
-        response = self.client.post(url_edit, data_update)
-        self.assertEqual(response.status_code, 302)
-        wo.refresh_from_db()
-        self.assertEqual(wo.order_type, WorkOrder.OrderType.PREVENTIVE)
-        self.assertFalse(wo.probable_causes.exists())
-        self.assertEqual(wo.pre_diagnosis, "")
-        self.assertIsNone(wo.failure_origin)
-        self.assertIsNone(wo.severity)
 
     def test_can_create_in_progress_order(self):
         """IN_PROGRESS should be a valid status option."""
