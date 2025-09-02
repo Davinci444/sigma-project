@@ -11,6 +11,8 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'project.settings')
+# Selecciona el módulo de settings según la variable de entorno
+env = os.environ.get('DJANGO_ENV', 'prod')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', f'project.settings.{env}')
 
 application = get_asgi_application()

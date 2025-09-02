@@ -1,4 +1,5 @@
 """Admin de Vehículos con inline de repuestos por vehículo."""
+from django import forms
 from django.contrib import admin
 from django.db.models import Q
 from django.urls import path
@@ -38,35 +39,62 @@ class EnTallerFilter(admin.SimpleListFilter):
         return qs
 
 
+class VehicleSpareForm(forms.ModelForm):
+    """Form used in the inline to dynamically pick spare items by category."""
+
+    category = forms.ModelChoiceField(
+        queryset=SpareCategory.objects.filter(is_active=True).order_by("name"),
+        required=False,
+        label="Categoría",
+    )
+
+    class Meta:
+        model = VehicleSpare
+        fields = (
+            "category",
+            "spare_item",
+            "brand",
+            "part_number",
+            "quantity",
+            "last_replacement_date",
+            "next_replacement_km",
+            "notes",
+        )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Determine current category either from POST data or existing instance
+        cat_id = self.data.get("category") or self.initial.get("category")
+        if not cat_id and self.instance.pk and self.instance.spare_item:
+            cat_id = self.instance.spare_item.category_id
+            self.fields["category"].initial = self.instance.spare_item.category
+
+        if cat_id:
+            try:
+                self.fields["spare_item"].queryset = SpareItem.objects.filter(
+                    category_id=cat_id
+                )
+            except (ValueError, TypeError):
+                self.fields["spare_item"].queryset = SpareItem.objects.none()
+        else:
+            # Avoid loading all items when category hasn't been chosen
+            self.fields["spare_item"].queryset = SpareItem.objects.none()
+
+
 class VehicleSpareInline(admin.TabularInline):
     model = VehicleSpare
+    form = VehicleSpareForm
     extra = 1
-    fields = ("category", "spare_item", "brand", "part_number", "quantity",
-              "last_replacement_date", "next_replacement_km", "notes")
-    autocomplete_fields = ("spare_item",)
-
-    def get_fields(self, request, obj=None):
-        fs = list(super().get_fields(request, obj))
-        if "category" not in fs:
-            fs.insert(0, "category")
-        return fs
-
-    def formfield_for_dbfield(self, db_field, **kwargs):
-        from django import forms
-        if db_field.name == "category":
-            return forms.ModelChoiceField(
-                queryset=SpareCategory.objects.filter(is_active=True).order_by("name"),
-                required=False,
-                label="Categoría",
-            )
-        return super().formfield_for_dbfield(db_field, **kwargs)
-
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "spare_item":
-            cat_id = request.POST.get("category") or request.GET.get("category")
-            if cat_id:
-                kwargs["queryset"] = SpareItem.objects.filter(category_id=cat_id)
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    fields = (
+        "category",
+        "spare_item",
+        "brand",
+        "part_number",
+        "quantity",
+        "last_replacement_date",
+        "next_replacement_km",
+        "notes",
+    )
 
 
 @admin.register(Vehicle)
