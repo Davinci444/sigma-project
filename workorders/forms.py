@@ -255,7 +255,8 @@ TaskFormSet = inlineformset_factory(
 class QuickCreateVehicleForm(forms.ModelForm):
     class Meta:
         model = Vehicle
-        fields = ['plate'] if Vehicle and _field_exists(Vehicle, 'plate') else []
+        required = ["plate", "brand", "linea", "modelo", "vehicle_type"]
+        fields = [f for f in required if Vehicle and _field_exists(Vehicle, f)]
 
 class QuickCreateDriverForm(forms.ModelForm):
     class Meta:
